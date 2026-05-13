@@ -4,6 +4,8 @@ Pin and resume Claude Code sessions across project directories.
 
 Claude Code's built-in `claude -r` picker only shows sessions for the current working directory. `cc-session-pin` lets you mark sessions as "pinned" and browse / resume them from anywhere, with a small TUI and a sessionId-prefix resolver.
 
+![alt text](image.png)
+
 ## Features
 
 - Pin the latest session in the current project — or any session by id prefix
