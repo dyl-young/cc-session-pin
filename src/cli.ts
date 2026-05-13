@@ -4,7 +4,7 @@ import { addCommand } from "./commands/add.js";
 import { listCommand } from "./commands/list.js";
 import { purgeCommand } from "./commands/purge.js";
 import { renameCommand } from "./commands/rename.js";
-import { rmByCwd, rmCommand } from "./commands/rm.js";
+import { rmCommand } from "./commands/rm.js";
 import { resumeByToken } from "./commands/resume.js";
 import { shellInitCommand } from "./commands/shell-init.js";
 
