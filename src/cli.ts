@@ -6,6 +6,7 @@ import { purgeCommand } from "./commands/purge.js";
 import { renameCommand } from "./commands/rename.js";
 import { rmByCwd, rmCommand } from "./commands/rm.js";
 import { resumeByToken } from "./commands/resume.js";
+import { shellInitCommand } from "./commands/shell-init.js";
 
 const cli = cac("cc-pin");
 
@@ -54,6 +55,12 @@ cli
   .command("rename <token> <newName>", "Rename a pin's display name")
   .action(async (token: string, newName: string) => {
     await renameCommand(token, newName);
+  });
+
+cli
+  .command("shell-init [shell]", "Print the shell wrapper for cd-on-resume (zsh|bash|fish)")
+  .action((shell: string | undefined) => {
+    shellInitCommand(shell);
   });
 
 cli.help();

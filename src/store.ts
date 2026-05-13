@@ -16,9 +16,14 @@ export type Pin = {
   gitBranch?: string;
 };
 
+export type PinStoreState = {
+  shellHintShown?: boolean;
+};
+
 export type PinStore = {
   version: 1;
   pins: Pin[];
+  state?: PinStoreState;
 };
 
 const EMPTY: PinStore = { version: 1, pins: [] };
@@ -26,11 +31,15 @@ const EMPTY: PinStore = { version: 1, pins: [] };
 export async function loadStore(): Promise<PinStore> {
   try {
     const raw = await readFile(PINS_FILE, "utf8");
-    const parsed = JSON.parse(raw) as { version: number; pins: Array<Record<string, unknown>> };
+    const parsed = JSON.parse(raw) as {
+      version: number;
+      pins: Array<Record<string, unknown>>;
+      state?: PinStoreState;
+    };
     if (parsed.version !== 1 || !Array.isArray(parsed.pins)) {
       throw new Error(`Unexpected pins.json shape at ${PINS_FILE}`);
     }
-    return { version: 1, pins: parsed.pins.map(stripLegacy) };
+    return { version: 1, pins: parsed.pins.map(stripLegacy), state: parsed.state };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return { ...EMPTY };
     throw err;
