@@ -1,6 +1,7 @@
 import { findSession, findSessionByPrefix, latestSessionForCwd, type SessionEntry } from "../sessions.js";
 import { loadStore, saveStore, type Pin } from "../store.js";
 import { uniqueAlias } from "../slug.js";
+import { bold, dim, green, yellow } from "../colors.js";
 
 export type AddOptions = {
   sessionToken?: string;
@@ -22,11 +23,13 @@ export async function addCommand(opts: AddOptions): Promise<void> {
       existing.status = "pinned";
       existing.pinnedAt = new Date().toISOString();
       await saveStore(store);
-      console.log(`Re-pinned ${existing.alias} (${entry.sessionId.slice(0, 8)})`);
+      printPinSummary("Re-pinned", existing.name, existing.alias, entry.sessionId, entry.projectPath);
       return;
     }
     await saveStore(store);
-    console.log(`Already pinned as ${existing.alias} (${entry.sessionId.slice(0, 8)}); cache refreshed.`);
+    printPinSummary("Already pinned", existing.name, existing.alias, entry.sessionId, entry.projectPath, {
+      footer: "cache refreshed",
+    });
     return;
   }
 
@@ -48,7 +51,23 @@ export async function addCommand(opts: AddOptions): Promise<void> {
 
   store.pins.push(pin);
   await saveStore(store);
-  console.log(`Pinned "${name}" as ${alias}  (${entry.sessionId.slice(0, 8)}, ${entry.projectPath})`);
+  printPinSummary("Pinned", name, alias, entry.sessionId, entry.projectPath);
+}
+
+function printPinSummary(
+  verb: string,
+  name: string,
+  alias: string,
+  sessionId: string,
+  projectPath: string,
+  opts: { footer?: string } = {},
+): void {
+  const idShort = sessionId.slice(0, 8);
+  console.log(green(bold(`⚲ ${verb} "${name}"`)));
+  console.log(
+    `  ${dim("alias")}  ${alias}   ${dim("·")}   ${dim("id")}  ${idShort}   ${dim("·")}   ${dim(projectPath)}`,
+  );
+  if (opts.footer) console.log(`  ${yellow(opts.footer)}`);
 }
 
 async function locateSession(token: string | undefined): Promise<SessionEntry> {
