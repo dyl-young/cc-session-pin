@@ -7,6 +7,7 @@ import { renameCommand } from "./commands/rename.js";
 import { rmCommand } from "./commands/rm.js";
 import { resumeByToken } from "./commands/resume.js";
 import { shellInitCommand } from "./commands/shell-init.js";
+import { runOrExit } from "./run.js";
 
 const cli = cac("cc-pin");
 
@@ -65,14 +66,7 @@ cli
 cli.help();
 cli.version("0.3.0");
 
-run();
-
-async function run() {
-  try {
-    cli.parse(process.argv, { run: false });
-    await cli.runMatchedCommand();
-  } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
-  }
-}
+runOrExit(async () => {
+  cli.parse(process.argv, { run: false });
+  await cli.runMatchedCommand();
+});
