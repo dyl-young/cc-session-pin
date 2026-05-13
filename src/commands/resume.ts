@@ -1,20 +1,20 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { resolveOrThrow } from "../resolve.js";
-import { loadStore, saveStore, type Pin } from "../store.js";
+import { loadStore, saveStore, type Pin, type PinStore } from "../store.js";
 
 export async function resumeByToken(token: string): Promise<void> {
   const store = await loadStore();
   const pin = resolveOrThrow(store.pins, token);
-  await resumePin(pin);
+  await resumePin(pin, store);
 }
 
-export async function resumePin(pin: Pin): Promise<void> {
+export async function resumePin(pin: Pin, store?: PinStore): Promise<void> {
   await writeFollowCwd(pin.projectPath);
   if (await handoffToWrapper(pin.sessionId)) {
     return;
   }
-  await maybeShowShellHint();
+  await maybeShowShellHint(store);
   return new Promise((_, reject) => {
     const child = spawn("claude", ["-r", pin.sessionId], {
       cwd: pin.projectPath,
@@ -46,14 +46,14 @@ async function handoffToWrapper(sessionId: string): Promise<boolean> {
   }
 }
 
-async function maybeShowShellHint(): Promise<void> {
+async function maybeShowShellHint(store?: PinStore): Promise<void> {
   if (process.env.CC_PIN_CWD_FILE || process.env.CC_PIN_RESUME_FILE) return;
-  const store = await loadStore();
-  if (store.state?.shellHintShown) return;
+  const s = store ?? (await loadStore());
+  if (s.state?.shellHintShown) return;
   process.stderr.write(SHELL_HINT);
-  store.state = { ...store.state, shellHintShown: true };
+  s.state = { ...s.state, shellHintShown: true };
   try {
-    await saveStore(store);
+    await saveStore(s);
   } catch {
     // if persistence fails the hint may show again; not fatal
   }

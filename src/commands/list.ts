@@ -54,7 +54,7 @@ export async function listCommand(opts: ListOptions): Promise<void> {
   const outcome = await runTui(rows);
   await applyMarks(store, outcome.marks);
   if (outcome.action === "resume") {
-    await resumePin(outcome.pin);
+    await resumePin(outcome.pin, store);
   }
 }
 
