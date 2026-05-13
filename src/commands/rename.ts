@@ -7,11 +7,11 @@ export async function renameCommand(token: string, newName: string): Promise<voi
   const result = resolvePin(store.pins, token);
   if (!result.ok) {
     if (result.reason === "not-found") throw new Error(`No pin matches "${token}".`);
-    const list = result.candidates.map((p) => `  ${p.alias}  ${p.sessionId}  ${p.name}`).join("\n");
+    const list = result.candidates.map((p) => `  ${p.sessionId}  ${p.name}`).join("\n");
     throw new Error(`Ambiguous token "${token}". Candidates:\n${list}`);
   }
   const old = result.pin.name;
   result.pin.name = newName.trim();
   await saveStore(store);
-  console.log(`Renamed ${result.pin.alias}: "${old}" → "${result.pin.name}".`);
+  console.log(`Renamed: "${old}" → "${result.pin.name}" (${result.pin.sessionId}).`);
 }

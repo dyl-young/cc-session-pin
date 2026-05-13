@@ -1,6 +1,6 @@
 {
   "name": "cc-session-pin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pin and resume Claude Code sessions across project directories",
   "type": "module",
   "bin": {

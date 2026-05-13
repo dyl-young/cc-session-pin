@@ -75,6 +75,7 @@ async function scanDir(dir: string, fallbackProjectPath: string | null): Promise
         messageCount: 0,
         created: stats.birthtime.toISOString(),
         modified: stats.mtime.toISOString(),
+        gitBranch: meta.gitBranch || undefined,
         projectPath,
         isSidechain: false,
       });
@@ -89,10 +90,11 @@ type JsonlMeta = {
   firstPrompt: string;
   aiTitle: string;
   cwd: string;
+  gitBranch: string;
 };
 
 async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
-  const meta: JsonlMeta = { firstPrompt: "", aiTitle: "", cwd: "" };
+  const meta: JsonlMeta = { firstPrompt: "", aiTitle: "", cwd: "", gitBranch: "" };
   try {
     const raw = await readFile(jsonlPath, "utf8");
     for (const line of raw.split(/\r?\n/)) {
@@ -101,6 +103,7 @@ async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
         type?: string;
         aiTitle?: string;
         cwd?: string;
+        gitBranch?: string;
         message?: { role?: string; content?: unknown };
       };
       try {
@@ -112,6 +115,9 @@ async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
         meta.aiTitle = parsed.aiTitle; // latest wins
       } else if (parsed.type === "user" && parsed.message?.role === "user") {
         if (!meta.cwd && typeof parsed.cwd === "string") meta.cwd = parsed.cwd;
+        if (typeof parsed.gitBranch === "string" && parsed.gitBranch) {
+          meta.gitBranch = parsed.gitBranch; // latest wins
+        }
         if (!meta.firstPrompt) {
           const c = parsed.message.content;
           const text = typeof c === "string" ? c : Array.isArray(c) ? extractText(c) : "";

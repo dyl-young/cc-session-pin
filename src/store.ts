@@ -5,7 +5,6 @@ import { PINS_DIR, PINS_FILE } from "./paths.js";
 export type PinStatus = "pinned" | "unpinned";
 
 export type Pin = {
-  alias: string;
   sessionId: string;
   projectPath: string;
   name: string;
@@ -14,6 +13,7 @@ export type Pin = {
   summary?: string;
   firstPrompt?: string;
   lastModified?: string;
+  gitBranch?: string;
 };
 
 export type PinStore = {
@@ -26,15 +26,21 @@ const EMPTY: PinStore = { version: 1, pins: [] };
 export async function loadStore(): Promise<PinStore> {
   try {
     const raw = await readFile(PINS_FILE, "utf8");
-    const parsed = JSON.parse(raw) as PinStore;
+    const parsed = JSON.parse(raw) as { version: number; pins: Array<Record<string, unknown>> };
     if (parsed.version !== 1 || !Array.isArray(parsed.pins)) {
       throw new Error(`Unexpected pins.json shape at ${PINS_FILE}`);
     }
-    return parsed;
+    return { version: 1, pins: parsed.pins.map(stripLegacy) };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return { ...EMPTY };
     throw err;
   }
+}
+
+function stripLegacy(raw: Record<string, unknown>): Pin {
+  // Drop fields that are no longer part of the model (e.g. `alias`).
+  const { alias: _alias, ...rest } = raw;
+  return rest as Pin;
 }
 
 export async function saveStore(store: PinStore): Promise<void> {

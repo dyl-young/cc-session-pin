@@ -1,12 +1,10 @@
 import { findSession, findSessionByPrefix, latestSessionForCwd, type SessionEntry } from "../sessions.js";
 import { loadStore, saveStore, type Pin } from "../store.js";
-import { uniqueAlias } from "../slug.js";
 import { bold, dim, green, yellow } from "../colors.js";
 
 export type AddOptions = {
   sessionToken?: string;
   name?: string;
-  alias?: string;
 };
 
 export async function addCommand(opts: AddOptions): Promise<void> {
@@ -18,27 +16,23 @@ export async function addCommand(opts: AddOptions): Promise<void> {
     existing.summary = entry.summary || existing.summary;
     existing.firstPrompt = entry.firstPrompt || existing.firstPrompt;
     existing.lastModified = entry.modified || existing.lastModified;
+    existing.gitBranch = entry.gitBranch ?? existing.gitBranch;
     if (opts.name?.trim()) existing.name = opts.name.trim();
     if (existing.status === "unpinned") {
       existing.status = "pinned";
       existing.pinnedAt = new Date().toISOString();
       await saveStore(store);
-      printPinSummary("Re-pinned", existing.name, existing.alias, entry.sessionId, entry.projectPath);
+      printPinSummary("Re-pinned", existing);
       return;
     }
     await saveStore(store);
-    printPinSummary("Already pinned", existing.name, existing.alias, entry.sessionId, entry.projectPath, {
-      footer: "cache refreshed",
-    });
+    printPinSummary("Already pinned", existing, { footer: "cache refreshed" });
     return;
   }
 
-  const taken = new Set(store.pins.map((p) => p.alias));
   const name = opts.name?.trim() || entry.summary || entry.firstPrompt.slice(0, 60) || "untitled";
-  const alias = opts.alias?.trim() ? assertFreeAlias(opts.alias.trim(), taken) : uniqueAlias(name, taken);
 
   const pin: Pin = {
-    alias,
     sessionId: entry.sessionId,
     projectPath: entry.projectPath,
     name,
@@ -47,26 +41,20 @@ export async function addCommand(opts: AddOptions): Promise<void> {
     summary: entry.summary,
     firstPrompt: entry.firstPrompt,
     lastModified: entry.modified,
+    gitBranch: entry.gitBranch || undefined,
   };
 
   store.pins.push(pin);
   await saveStore(store);
-  printPinSummary("Pinned", name, alias, entry.sessionId, entry.projectPath);
+  printPinSummary("Pinned", pin);
 }
 
-function printPinSummary(
-  verb: string,
-  name: string,
-  alias: string,
-  sessionId: string,
-  projectPath: string,
-  opts: { footer?: string } = {},
-): void {
-  const idShort = sessionId.slice(0, 8);
-  console.log(bold(`⚲ ${verb} "${name}"`));
-  console.log(
-    `  ${dim("alias")}  ${green(alias)}   ${dim("·")}   ${dim("id")}  ${green(idShort)}   ${dim("·")}   ${dim(projectPath)}`,
-  );
+function printPinSummary(verb: string, pin: Pin, opts: { footer?: string } = {}): void {
+  console.log(bold(`⚲ ${verb} "${pin.name}"`));
+  const parts = [`${dim("id")}  ${green(pin.sessionId)}`];
+  if (pin.gitBranch) parts.push(`${dim("branch")}  ${green(pin.gitBranch)}`);
+  parts.push(dim(pin.projectPath));
+  console.log("  " + parts.join(`   ${dim("·")}   `));
   if (opts.footer) console.log(`  ${yellow(opts.footer)}`);
 }
 
@@ -92,11 +80,6 @@ async function locateSession(token: string | undefined): Promise<SessionEntry> {
     throw new Error(`Ambiguous session prefix "${token}". Candidates:\n${list}`);
   }
   return matches[0];
-}
-
-function assertFreeAlias(alias: string, taken: Set<string>): string {
-  if (taken.has(alias)) throw new Error(`Alias "${alias}" is already in use.`);
-  return alias;
 }
 
 function isUuid(s: string): boolean {

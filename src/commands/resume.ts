@@ -7,7 +7,7 @@ export async function resumeByToken(token: string): Promise<void> {
   const result = resolvePin(store.pins, token);
   if (!result.ok) {
     if (result.reason === "not-found") throw new Error(`No pin matches "${token}".`);
-    const list = result.candidates.map((p) => `  ${p.alias}  ${p.sessionId}  ${p.name}`).join("\n");
+    const list = result.candidates.map((p) => `  ${p.sessionId}  ${p.name}`).join("\n");
     throw new Error(`Ambiguous token "${token}". Candidates:\n${list}`);
   }
   await resumePin(result.pin);

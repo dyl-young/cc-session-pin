@@ -12,17 +12,15 @@ const cli = cac("cc-pin");
 cli
   .command("[sessionId]", "Pin a session (defaults to latest in cwd)")
   .option("--name <name>", "Display name for the pin")
-  .option("--alias <alias>", "Custom alias (must be unique)")
-  .action(async (sessionId: string | undefined, opts: { name?: string; alias?: string }) => {
-    await addCommand({ sessionToken: sessionId, name: opts.name, alias: opts.alias });
+  .action(async (sessionId: string | undefined, opts: { name?: string }) => {
+    await addCommand({ sessionToken: sessionId, name: opts.name });
   });
 
 cli
   .command("add [sessionId]", "Pin a session explicitly")
   .option("--name <name>", "Display name")
-  .option("--alias <alias>", "Custom alias")
-  .action(async (sessionId: string | undefined, opts: { name?: string; alias?: string }) => {
-    await addCommand({ sessionToken: sessionId, name: opts.name, alias: opts.alias });
+  .action(async (sessionId: string | undefined, opts: { name?: string }) => {
+    await addCommand({ sessionToken: sessionId, name: opts.name });
   });
 
 cli
@@ -35,7 +33,7 @@ cli
   });
 
 cli
-  .command("resume <token>", "Resume a pinned session by alias or id prefix")
+  .command("resume <token>", "Resume a pinned session by id prefix or name substring")
   .action(async (token: string) => {
     await resumeByToken(token);
   });
@@ -59,7 +57,7 @@ cli
   });
 
 cli.help();
-cli.version("0.1.0");
+cli.version("0.3.0");
 
 run();
 

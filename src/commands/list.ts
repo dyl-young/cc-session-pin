@@ -22,6 +22,7 @@ type Mark = "unpin" | "repin";
 type EnrichedPin = {
   pin: Pin;
   lastModified?: string;
+  gitBranch?: string;
   missing: boolean;
 };
 
@@ -48,7 +49,7 @@ export async function listCommand(opts: ListOptions): Promise<void> {
     return;
   }
 
-  const outcome = await runTui(rows, opts);
+  const outcome = await runTui(rows);
   await applyMarks(store, outcome.marks);
   if (outcome.action === "resume") {
     await resumePin(outcome.pin);
@@ -62,6 +63,7 @@ async function enrich(pin: Pin): Promise<EnrichedPin> {
   return {
     pin,
     lastModified: live?.modified ?? pin.lastModified,
+    gitBranch: live?.gitBranch || pin.gitBranch,
     missing: !live,
   };
 }
@@ -70,7 +72,7 @@ type TuiOutcome =
   | { action: "resume"; pin: Pin; marks: Map<string, Mark> }
   | { action: "quit"; marks: Map<string, Mark> };
 
-async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcome> {
+async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
   const renderer = await createCliRenderer({
     exitOnCtrlC: false,
     backgroundColor: "transparent",
@@ -96,6 +98,10 @@ async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcom
 
   const headerText = new TextRenderable(renderer, { content: header(widths), fg: "#8b949e" });
   const statusText = new TextRenderable(renderer, { content: statusLine(marks), fg: "#8b949e" });
+  const idText = new TextRenderable(renderer, {
+    content: idFooter(rows[0]?.pin),
+    fg: "#6e7681",
+  });
   const hintText = new TextRenderable(renderer, {
     content: "↑↓ navigate  ·  ⏎ resume  ·  ^X toggle pin  ·  q quit",
     fg: "#6e7681",
@@ -114,6 +120,7 @@ async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcom
       headerText,
       select,
       statusText,
+      idText,
       hintText,
     ),
   );
@@ -130,6 +137,10 @@ async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcom
       }
       resolve(out);
     };
+
+    select.on(SelectRenderableEvents.SELECTION_CHANGED, () => {
+      idText.content = idFooter(currentPin(rows, select));
+    });
 
     select.on(SelectRenderableEvents.ITEM_SELECTED, (option: SelectOption) => {
       const pin = option.value as Pin | undefined;
@@ -165,8 +176,8 @@ function currentPin(rows: EnrichedPin[], select: SelectRenderable): Pin | undefi
 
 function toggleMark(marks: Map<string, Mark>, pin: Pin | undefined, mark: Mark) {
   if (!pin) return;
-  if (mark === "unpin" && pin.status === "unpinned") return; // already unpinned
-  if (mark === "repin" && pin.status === "pinned") return; // already pinned
+  if (mark === "unpin" && pin.status === "unpinned") return;
+  if (mark === "repin" && pin.status === "pinned") return;
   const existing = marks.get(pin.sessionId);
   if (existing === mark) marks.delete(pin.sessionId);
   else marks.set(pin.sessionId, mark);
@@ -189,9 +200,11 @@ type ColumnWidths = {
   project: number;
   name: number;
   modified: number;
-  alias: number;
+  branch: number;
   prefix: number;
 };
+
+const SELECT_INDICATOR_WIDTH = 2; // SelectRenderable prepends "▶ " / "  " to each row
 
 function computeWidths(terminalWidth: number): ColumnWidths {
   const usable = Math.max(60, terminalWidth - 6 - SELECT_INDICATOR_WIDTH);
@@ -204,7 +217,7 @@ function computeWidths(terminalWidth: number): ColumnWidths {
     project: each,
     name: each,
     modified: each,
-    alias: remaining - each * 3,
+    branch: remaining - each * 3,
   };
 }
 
@@ -231,7 +244,7 @@ function formatRow(row: EnrichedPin, marks: Map<string, Mark>, w: ColumnWidths):
     "  " +
     cell(relativeTime(row.lastModified) + (row.missing ? " (stale)" : ""), w.modified) +
     "  " +
-    cell(row.pin.alias, w.alias)
+    cell(row.gitBranch || "—", w.branch)
   );
 }
 
@@ -239,8 +252,6 @@ function markGlyph(status: Pin["status"], mark: Mark | undefined): string {
   const willBePinned = mark === "repin" || (status === "pinned" && mark !== "unpin");
   return willBePinned ? " " : "✗";
 }
-
-const SELECT_INDICATOR_WIDTH = 2; // SelectRenderable prepends "▶ " / "  " to each row
 
 function header(w: ColumnWidths): string {
   return (
@@ -252,8 +263,13 @@ function header(w: ColumnWidths): string {
     "  " +
     cell("MODIFIED", w.modified) +
     "  " +
-    cell("ALIAS", w.alias)
+    cell("BRANCH", w.branch)
   );
+}
+
+function idFooter(pin: Pin | undefined): string {
+  if (!pin) return "";
+  return `id  ${pin.sessionId}`;
 }
 
 function statusLine(marks: Map<string, Mark>): string {
@@ -311,18 +327,18 @@ async function applyMarks(store: PinStore, marks: Map<string, Mark>) {
 
 function printPlain(rows: EnrichedPin[]): void {
   const cols = rows.map((r) => ({
-    alias: r.pin.alias,
-    name: r.pin.name,
     project: basename(r.pin.projectPath),
+    name: r.pin.name,
     modified: relativeTime(r.lastModified),
+    branch: r.gitBranch || "—",
     status: r.pin.status + (r.missing ? " (stale)" : ""),
-    id: r.pin.sessionId.slice(0, 8),
+    id: r.pin.sessionId,
   }));
   const widths = {
     project: max(cols, "project"),
     name: max(cols, "name"),
     modified: max(cols, "modified"),
-    alias: max(cols, "alias"),
+    branch: max(cols, "branch"),
     status: max(cols, "status"),
   };
   for (const c of cols) {
@@ -331,7 +347,7 @@ function printPlain(rows: EnrichedPin[]): void {
         c.project.padEnd(widths.project),
         c.name.padEnd(widths.name),
         c.modified.padEnd(widths.modified),
-        c.alias.padEnd(widths.alias),
+        c.branch.padEnd(widths.branch),
         c.status.padEnd(widths.status),
         c.id,
       ].join("  "),
