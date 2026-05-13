@@ -5,7 +5,11 @@
   "type": "module",
   "bin": {
     "cc-pin": "./src/cli.ts",
-    "cc-unpin": "./src/unpin.ts"
+    "pin": "./src/cli.ts",
+    "cc-pins": "./src/bins/pins.ts",
+    "pins": "./src/bins/pins.ts",
+    "cc-unpin": "./src/unpin.ts",
+    "unpin": "./src/unpin.ts"
   },
   "files": [
     "src",
