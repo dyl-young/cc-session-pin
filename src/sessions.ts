@@ -8,8 +8,6 @@ export type SessionEntry = {
   fileMtime: number;
   firstPrompt: string;
   summary: string;
-  messageCount: number;
-  created: string;
   modified: string;
   gitBranch?: string;
   projectPath: string;
@@ -72,8 +70,6 @@ async function scanDir(dir: string, fallbackProjectPath: string | null): Promise
         fileMtime: stats.mtimeMs,
         firstPrompt: meta.firstPrompt,
         summary: meta.aiTitle || meta.firstPrompt.slice(0, 60),
-        messageCount: 0,
-        created: stats.birthtime.toISOString(),
         modified: stats.mtime.toISOString(),
         gitBranch: meta.gitBranch || undefined,
         projectPath,
