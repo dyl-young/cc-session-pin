@@ -75,12 +75,14 @@ type TuiOutcome =
 
 async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
   const renderer = await createCliRenderer({
+    screenMode: "split-footer",
+    footerHeight: computeFooterHeight(rows.length),
     exitOnCtrlC: false,
     backgroundColor: "transparent",
   });
   const marks = new Map<string, Mark>();
 
-  const widths = computeWidths(renderer.width);
+  const widths = computeWidths(renderer.width, rows);
 
   const select = new SelectRenderable(renderer, {
     options: buildOptions(rows, marks, widths),
@@ -205,18 +207,40 @@ type ColumnWidths = {
 
 const SELECT_INDICATOR_WIDTH = 2; // SelectRenderable prepends "▶ " / "  " to each row
 
-function computeWidths(terminalWidth: number): ColumnWidths {
+function computeFooterHeight(rowCount: number): number {
+  // chrome: padding(2) + 4 gaps + header(1) + status(1) + id(1) + hint(1) = 10
+  const chrome = 10;
+  const maxSelectVisible = 12;
+  const selectRows = Math.min(rowCount, maxSelectVisible);
+  const desired = chrome + selectRows;
+  const terminalHeight = process.stdout.rows ?? 24;
+  // leave at least 6 rows of prompt/scrollback above the footer
+  const cap = Math.max(12, terminalHeight - 6);
+  return Math.min(desired, cap);
+}
+
+const PROJECT_NAME_GAP = "    ";
+const NAME_MODIFIED_GAP = "  ";
+
+function computeWidths(terminalWidth: number, rows: EnrichedPin[]): ColumnWidths {
   const usable = Math.max(60, terminalWidth - 6 - SELECT_INDICATOR_WIDTH);
   const prefix = 2;
-  const gap = 2;
-  const remaining = usable - prefix - gap * 2;
-  const each = Math.floor(remaining / 3);
-  return {
-    prefix,
-    project: each,
-    name: each,
-    modified: remaining - each * 2,
-  };
+  const gapTotal = PROJECT_NAME_GAP.length + NAME_MODIFIED_GAP.length;
+
+  const longestModified = rows.reduce((acc, r) => {
+    const s = relativeTime(r.lastModified) + (r.missing ? " (stale)" : "");
+    return Math.max(acc, s.length);
+  }, "MODIFIED".length);
+  const modified = Math.min(longestModified + 4, 20);
+
+  const longestProject = rows.reduce(
+    (acc, r) => Math.max(acc, basename(r.pin.projectPath).length),
+    "PROJECT".length,
+  );
+  const project = Math.min(longestProject, 25);
+
+  const name = Math.max(10, usable - prefix - gapTotal - modified - project);
+  return { prefix, project, name, modified };
 }
 
 function buildOptions(
@@ -237,9 +261,9 @@ function formatRow(row: EnrichedPin, marks: Map<string, Mark>, w: ColumnWidths):
   return (
     prefix +
     cell(basename(row.pin.projectPath), w.project) +
-    "  " +
+    PROJECT_NAME_GAP +
     cell(row.pin.name, w.name) +
-    "  " +
+    NAME_MODIFIED_GAP +
     cell(relativeTime(row.lastModified) + (row.missing ? " (stale)" : ""), w.modified)
   );
 }
@@ -254,9 +278,9 @@ function header(w: ColumnWidths): string {
     " ".repeat(SELECT_INDICATOR_WIDTH) +
     " ".padEnd(w.prefix) +
     cell("PROJECT", w.project) +
-    "  " +
+    PROJECT_NAME_GAP +
     cell("NAME", w.name) +
-    "  " +
+    NAME_MODIFIED_GAP +
     cell("MODIFIED", w.modified)
   );
 }
