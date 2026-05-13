@@ -63,9 +63,9 @@ function printPinSummary(
   opts: { footer?: string } = {},
 ): void {
   const idShort = sessionId.slice(0, 8);
-  console.log(green(bold(`⚲ ${verb} "${name}"`)));
+  console.log(bold(`⚲ ${verb} "${name}"`));
   console.log(
-    `  ${dim("alias")}  ${alias}   ${dim("·")}   ${dim("id")}  ${idShort}   ${dim("·")}   ${dim(projectPath)}`,
+    `  ${dim("alias")}  ${green(alias)}   ${dim("·")}   ${dim("id")}  ${green(idShort)}   ${dim("·")}   ${dim(projectPath)}`,
   );
   if (opts.footer) console.log(`  ${yellow(opts.footer)}`);
 }
