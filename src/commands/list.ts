@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import { select } from "@inquirer/prompts";
-import { findSession } from "../sessions.js";
+import { readSessionsForProject } from "../sessions.js";
 import { loadStore, type Pin } from "../store.js";
 import { resumePin } from "./resume.js";
 
@@ -46,7 +46,8 @@ type EnrichedRow = {
 };
 
 async function enrich(pin: Pin): Promise<EnrichedRow> {
-  const live = await findSession(pin.sessionId);
+  const projectEntries = await readSessionsForProject(pin.projectPath);
+  const live = projectEntries.find((e) => e.sessionId === pin.sessionId);
   return {
     pin,
     lastModified: live?.modified ?? pin.lastModified,

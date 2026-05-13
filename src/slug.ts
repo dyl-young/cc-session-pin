@@ -1,3 +1,5 @@
+const MAX_SLUG_LEN = 32;
+
 export function slugify(input: string): string {
   const s = input
     .normalize("NFKD")
@@ -5,7 +7,8 @@ export function slugify(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return s || "pin";
+  const capped = s.slice(0, MAX_SLUG_LEN).replace(/-+$/g, "");
+  return capped || "pin";
 }
 
 export function uniqueAlias(base: string, taken: Set<string>): string {
