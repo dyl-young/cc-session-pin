@@ -51,10 +51,9 @@ export async function addCommand(opts: AddOptions): Promise<void> {
 
 function printPinSummary(verb: string, pin: Pin, opts: { footer?: string } = {}): void {
   console.log(bold(`⚲ ${verb} "${pin.name}"`));
-  const parts = [`${dim("id")}  ${green(pin.sessionId)}`];
-  if (pin.gitBranch) parts.push(`${dim("branch")}  ${green(pin.gitBranch)}`);
-  parts.push(dim(pin.projectPath));
-  console.log("  " + parts.join(`   ${dim("·")}   `));
+  console.log(
+    `  ${dim("id")}  ${green(pin.sessionId)}   ${dim("·")}   ${dim(pin.projectPath)}`,
+  );
   if (opts.footer) console.log(`  ${yellow(opts.footer)}`);
 }
 

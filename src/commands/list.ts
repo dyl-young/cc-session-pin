@@ -5,6 +5,7 @@ import {
   SelectRenderableEvents,
   TextRenderable,
   createCliRenderer,
+  vstyles,
   type KeyEvent,
   type SelectOption,
 } from "@opentui/core";
@@ -98,10 +99,8 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
 
   const headerText = new TextRenderable(renderer, { content: header(widths), fg: "#8b949e" });
   const statusText = new TextRenderable(renderer, { content: statusLine(marks), fg: "#8b949e" });
-  const idText = new TextRenderable(renderer, {
-    content: idFooter(rows[0]?.pin),
-    fg: "#6e7681",
-  });
+  const idText = new TextRenderable(renderer, { content: "", fg: "#6e7681" });
+  populateFooter(idText, rows[0]);
   const hintText = new TextRenderable(renderer, {
     content: "↑↓ navigate  ·  ⏎ resume  ·  ^X toggle pin  ·  q quit",
     fg: "#6e7681",
@@ -139,11 +138,12 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
     };
 
     select.on(SelectRenderableEvents.SELECTION_CHANGED, () => {
-      idText.content = idFooter(currentPin(rows, select));
+      const row = rows[select.getSelectedIndex()];
+      populateFooter(idText, row);
     });
 
-    select.on(SelectRenderableEvents.ITEM_SELECTED, (option: SelectOption) => {
-      const pin = option.value as Pin | undefined;
+    select.on(SelectRenderableEvents.ITEM_SELECTED, (_index: number, option: SelectOption) => {
+      const pin = option?.value as Pin | undefined;
       if (!pin) return;
       finish({ action: "resume", pin, marks });
     });
@@ -200,7 +200,6 @@ type ColumnWidths = {
   project: number;
   name: number;
   modified: number;
-  branch: number;
   prefix: number;
 };
 
@@ -210,14 +209,13 @@ function computeWidths(terminalWidth: number): ColumnWidths {
   const usable = Math.max(60, terminalWidth - 6 - SELECT_INDICATOR_WIDTH);
   const prefix = 2;
   const gap = 2;
-  const remaining = usable - prefix - gap * 3;
-  const each = Math.floor(remaining / 4);
+  const remaining = usable - prefix - gap * 2;
+  const each = Math.floor(remaining / 3);
   return {
     prefix,
     project: each,
     name: each,
-    modified: each,
-    branch: remaining - each * 3,
+    modified: remaining - each * 2,
   };
 }
 
@@ -242,9 +240,7 @@ function formatRow(row: EnrichedPin, marks: Map<string, Mark>, w: ColumnWidths):
     "  " +
     cell(row.pin.name, w.name) +
     "  " +
-    cell(relativeTime(row.lastModified) + (row.missing ? " (stale)" : ""), w.modified) +
-    "  " +
-    cell(row.gitBranch || "—", w.branch)
+    cell(relativeTime(row.lastModified) + (row.missing ? " (stale)" : ""), w.modified)
   );
 }
 
@@ -261,15 +257,18 @@ function header(w: ColumnWidths): string {
     "  " +
     cell("NAME", w.name) +
     "  " +
-    cell("MODIFIED", w.modified) +
-    "  " +
-    cell("BRANCH", w.branch)
+    cell("MODIFIED", w.modified)
   );
 }
 
-function idFooter(pin: Pin | undefined): string {
-  if (!pin) return "";
-  return `id  ${pin.sessionId}`;
+function populateFooter(footer: TextRenderable, row: EnrichedPin | undefined): void {
+  footer.clear();
+  if (!row) return;
+  footer.add(`id  ${row.pin.sessionId}`);
+  if (row.gitBranch) {
+    footer.add("   ·   branch  ");
+    footer.add(vstyles.fg("#22c55e", row.gitBranch));
+  }
 }
 
 function statusLine(marks: Map<string, Mark>): string {
