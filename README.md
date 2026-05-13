@@ -35,7 +35,7 @@ This installs six bins on your PATH:
 
 The `cc-` prefixed names are there for collision-free use if `pin` / `pins` / `unpin` clash with something else on your system.
 
-### Shell integration (recommended)
+### Optional Shell integration (recommended)
 
 The shell wrapper makes `pins → Enter` (resume) drop your parent shell into the project directory, so any new pane / tab you open during the Claude session starts in the right place.
 
@@ -51,56 +51,30 @@ cc-pin shell-init fish | source
 
 Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries still work; the cd-on-resume just won't trigger.
 
-## Usage
+## Commands
 
-### Pinning the current session
+| Command                               | What it does                                                        |
+| ------------------------------------- | ------------------------------------------------------------------- |
+| `pin`                                 | Pin the most recently modified session in the current directory     |
+| `pin <sessionId>`                     | Pin a specific session by id (full or unique prefix)                |
+| `pin --name "..."`                    | Pin and override the auto-derived display name                      |
+| `pins`                                | Open the interactive TUI (`↑↓` navigate, `⏎` resume, `^X` toggle, `q` quit) |
+| `pins --plain`                        | Print a plain table for piping / scripting                          |
+| `pins --all`                          | Include soft-deleted entries in the list                            |
+| `unpin`                               | Soft-delete the pin matching the current directory                  |
+| `unpin <token>`                       | Soft-delete a pin by id (full or prefix) or name substring          |
+| `cc-pin resume <token>`               | Resume a pinned session directly (no TUI)                           |
+| `cc-pin rename <token> "<new name>"`  | Rename a pin's display name                                         |
+| `cc-pin purge`                        | Permanently drop all soft-deleted entries                           |
+| `cc-pin shell-init [zsh\|bash\|fish]` | Print the shell wrapper (see [Shell integration](#shell-integration-recommended)) |
 
-From inside Claude Code, run the pin skill — or from a terminal in the project directory:
+`<token>` matches a pin by **session id** (full or any unique prefix) or by **name substring** — whichever uniquely identifies one pin.
 
-```sh
-pin                  # pins the most recently modified session in this directory
-pin <sessionId>      # pin a specific session by id prefix
-pin --name "..."     # override the auto-derived display name
-```
+### Notes
 
-The pin name is read from the session's `aiTitle` metadata (same name `claude -r` shows), so it'll match what you'd see in Claude's built-in picker.
-
-### Listing & resuming
-
-```sh
-pins                 # opens an interactive TUI: ↑↓ navigate, ⏎ resume, ^X toggle, q quit
-pins --plain         # plain table for piping / scripting
-pins --all           # include soft-deleted (unpinned) entries
-```
-
-Inside the TUI:
-
-- `↑` / `↓` — navigate
-- `⏎` — resume the selected session (cds your shell if shell-init is set up)
-- `^X` — toggle pin / unpin on the highlighted row (applies on quit)
-- `q` — quit
-
-You can also resume directly without the TUI:
-
-```sh
-cc-pin resume <token>     # token = id prefix or name substring
-```
-
-### Unpinning
-
-```sh
-unpin                # soft-delete the pin matching the current directory
-unpin <token>        # soft-delete by id prefix or name substring
-cc-pin purge         # permanently drop all soft-deleted entries
-```
-
-Soft-deleted entries are hidden from `pins` but still visible in `pins --all`, and can be re-pinned with `^X` from there.
-
-### Renaming
-
-```sh
-cc-pin rename <token> "new display name"
-```
+- **Pinning:** display names come from the session's `aiTitle` metadata, so they match what `claude -r` shows. Override with `--name`.
+- **TUI:** `^X` stages a pin/unpin toggle on the highlighted row; changes apply when you quit. Soft-deleted entries hide from `pins` but still show in `pins --all`, where you can re-pin them with `^X`.
+- **Skills:** inside Claude Code, the bundled `pin` / `unpin` skills (see [Skills](#skills)) wrap the same commands so you can pin without leaving the chat.
 
 ## Skills
 

@@ -10,14 +10,6 @@ import {
   type KeyEvent,
   type SelectOption,
 } from "@opentui/core";
-
-// Theme-aware palette: ANSI indices follow the user's terminal colour scheme.
-//   8 = bright black (muted grey), 4 = blue, 15 = bright white, 2 = green
-const COLOR_FG = RGBA.defaultForeground();
-const COLOR_MUTED = RGBA.fromIndex(8);
-const COLOR_SELECTED_BG = RGBA.fromIndex(4);
-const COLOR_SELECTED_FG = RGBA.fromIndex(15);
-const COLOR_BRANCH = RGBA.fromIndex(2);
 import { loadStore, saveStore, type Pin, type PinStore } from "../store.js";
 import { readSessionsForProject } from "../sessions.js";
 import { resumePin } from "./resume.js";
@@ -100,21 +92,21 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
     showDescription: false,
     showScrollIndicator: true,
     backgroundColor: "transparent",
-    textColor: COLOR_FG,
-    selectedBackgroundColor: COLOR_SELECTED_BG,
-    selectedTextColor: COLOR_SELECTED_FG,
+    textColor: PALETTE.text,
+    selectedBackgroundColor: PALETTE.selectedBg,
+    selectedTextColor: PALETTE.selectedText,
     focusedBackgroundColor: "transparent",
-    focusedTextColor: COLOR_FG,
+    focusedTextColor: PALETTE.text,
     flexGrow: 1,
   });
 
-  const headerText = new TextRenderable(renderer, { content: header(widths), fg: COLOR_MUTED });
-  const statusText = new TextRenderable(renderer, { content: statusLine(marks), fg: COLOR_MUTED });
-  const idText = new TextRenderable(renderer, { content: "", fg: COLOR_MUTED });
+  const headerText = new TextRenderable(renderer, { content: header(widths), fg: PALETTE.faint });
+  const statusText = new TextRenderable(renderer, { content: statusLine(marks), fg: PALETTE.faint });
+  const idText = new TextRenderable(renderer, { content: "", fg: PALETTE.dim });
   populateFooter(idText, rows[0]);
   const hintText = new TextRenderable(renderer, {
     content: "↑↓ navigate  ·  ⏎ resume  ·  ^X toggle pin  ·  q quit",
-    fg: COLOR_MUTED,
+    fg: PALETTE.dim,
   });
 
   renderer.root.add(
@@ -300,9 +292,22 @@ function populateFooter(footer: TextRenderable, row: EnrichedPin | undefined): v
   footer.add(`id  ${row.pin.sessionId}`);
   if (row.gitBranch) {
     footer.add("   ·   branch  ");
-    footer.add(vstyles.fg(COLOR_BRANCH, row.gitBranch));
+    footer.add(vstyles.fg(PALETTE.branch, row.gitBranch));
   }
 }
+
+// Colors:
+// - text: terminal's own default foreground (theme-adaptive via ANSI \x1b[39m)
+// - faint/dim: ANSI 256 mid-greys that read on both light and dark backgrounds
+// - selection / branch: hex shades chosen to keep contrast against the blue/white pair
+const PALETTE = {
+  text: RGBA.defaultForeground(),
+  faint: "#9aa0a6",
+  dim: "#6e7681",
+  selectedBg: "#1f6feb",
+  selectedText: "#ffffff",
+  branch: "#22c55e",
+};
 
 function statusLine(marks: Map<string, Mark>): string {
   let unpin = 0;
