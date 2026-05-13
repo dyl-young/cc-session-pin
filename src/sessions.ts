@@ -40,7 +40,14 @@ export async function readSessionsForProject(projectPath: string): Promise<Sessi
 }
 
 async function scanProjectDir(projectPath: string): Promise<SessionEntry[]> {
-  const dir = join(PROJECTS_DIR, encodeProjectPath(projectPath));
+  return scanDir(join(PROJECTS_DIR, encodeProjectPath(projectPath)), projectPath);
+}
+
+async function scanEncodedDir(encodedName: string): Promise<SessionEntry[]> {
+  return scanDir(join(PROJECTS_DIR, encodedName), null);
+}
+
+async function scanDir(dir: string, fallbackProjectPath: string | null): Promise<SessionEntry[]> {
   let entries: string[];
   try {
     entries = await readdir(dir);
@@ -57,6 +64,8 @@ async function scanProjectDir(projectPath: string): Promise<SessionEntry[]> {
     try {
       const stats = await stat(full);
       const meta = await readJsonlMeta(full);
+      const projectPath = meta.cwd || fallbackProjectPath;
+      if (!projectPath) continue; // can't pin without a real path
       out.push({
         sessionId,
         fullPath: full,
@@ -66,7 +75,7 @@ async function scanProjectDir(projectPath: string): Promise<SessionEntry[]> {
         messageCount: 0,
         created: stats.birthtime.toISOString(),
         modified: stats.mtime.toISOString(),
-        projectPath: meta.cwd || projectPath,
+        projectPath,
         isSidechain: false,
       });
     } catch {
@@ -150,12 +159,10 @@ async function* iterAllSessions(): AsyncGenerator<SessionEntry> {
       known.add(e.sessionId);
       yield e;
     }
-    // Sessions not yet in the index (e.g. live ones) — pull from raw jsonls.
-    // We pass projectPath via the index when available; otherwise we can't recover
-    // the un-encoded path, so we skip the synth scan.
-    if (indexed.length === 0) continue;
-    const projectPath = indexed[0].projectPath;
-    const scanned = await scanProjectDir(projectPath);
+    // Pick up sessions not yet in the index (live ones) by scanning raw jsonls.
+    // scanEncodedDir reads cwd directly from the jsonl, so we don't need to
+    // un-encode the directory name.
+    const scanned = await scanEncodedDir(dir);
     for (const s of scanned) {
       if (!known.has(s.sessionId)) yield s;
     }
