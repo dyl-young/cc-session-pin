@@ -71,7 +71,10 @@ type TuiOutcome =
   | { action: "quit"; marks: Map<string, Mark> };
 
 async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcome> {
-  const renderer = await createCliRenderer({ exitOnCtrlC: false });
+  const renderer = await createCliRenderer({
+    exitOnCtrlC: false,
+    backgroundColor: "transparent",
+  });
   const marks = new Map<string, Mark>();
 
   const widths = computeWidths(renderer.width);
@@ -100,7 +103,14 @@ async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcom
 
   renderer.root.add(
     Box(
-      { flexDirection: "column", padding: 1, gap: 1, flexGrow: 1 },
+      {
+        flexDirection: "column",
+        padding: 1,
+        gap: 1,
+        flexGrow: 1,
+        shouldFill: false,
+        backgroundColor: "transparent",
+      },
       headerText,
       select,
       statusText,
