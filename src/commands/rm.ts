@@ -1,5 +1,6 @@
 import { resolvePin } from "../resolve.js";
 import { loadStore, saveStore } from "../store.js";
+import { bold } from "../colors.js";
 
 export async function rmCommand(token: string): Promise<void> {
   const store = await loadStore();
@@ -15,7 +16,7 @@ export async function rmCommand(token: string): Promise<void> {
   }
   result.pin.status = "unpinned";
   await saveStore(store);
-  console.log(`Unpinned ${result.pin.alias} (${result.pin.sessionId.slice(0, 8)}).`);
+  console.log(`${bold("✗ Unpinned")} ${result.pin.alias} (${result.pin.sessionId.slice(0, 8)}).`);
 }
 
 export async function rmByCwd(cwd: string): Promise<void> {
@@ -26,5 +27,5 @@ export async function rmByCwd(cwd: string): Promise<void> {
   const target = matches[0];
   target.status = "unpinned";
   await saveStore(store);
-  console.log(`Unpinned ${target.alias} (${target.sessionId.slice(0, 8)}).`);
+  console.log(`${bold("✗ Unpinned")} ${target.alias} (${target.sessionId.slice(0, 8)}).`);
 }
