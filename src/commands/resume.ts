@@ -15,16 +15,13 @@ export async function resumePin(pin: Pin): Promise<void> {
     return;
   }
   await maybeShowShellHint();
-  return new Promise((resolve, reject) => {
+  return new Promise((_, reject) => {
     const child = spawn("claude", ["-r", pin.sessionId], {
       cwd: pin.projectPath,
       stdio: "inherit",
     });
     child.on("error", reject);
-    child.on("exit", (code) => {
-      process.exit(code ?? 0);
-      resolve();
-    });
+    child.on("exit", (code) => process.exit(code ?? 0));
   });
 }
 
