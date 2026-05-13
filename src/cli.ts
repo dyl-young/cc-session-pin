@@ -1,0 +1,79 @@
+#!/usr/bin/env node
+import { cac } from "cac";
+import { addCommand } from "./commands/add.js";
+import { listCommand } from "./commands/list.js";
+import { purgeCommand } from "./commands/purge.js";
+import { renameCommand } from "./commands/rename.js";
+import { rmByCwd, rmCommand } from "./commands/rm.js";
+import { resumeByToken } from "./commands/resume.js";
+
+const cli = cac("cc-pin");
+
+cli
+  .command("[sessionId]", "Pin a session (defaults to latest in cwd)")
+  .option("--name <name>", "Display name for the pin")
+  .option("--alias <alias>", "Custom alias (must be unique)")
+  .action(async (sessionId: string | undefined, opts: { name?: string; alias?: string }) => {
+    await addCommand({ sessionToken: sessionId, name: opts.name, alias: opts.alias });
+  });
+
+cli
+  .command("add [sessionId]", "Pin a session explicitly")
+  .option("--name <name>", "Display name")
+  .option("--alias <alias>", "Custom alias")
+  .action(async (sessionId: string | undefined, opts: { name?: string; alias?: string }) => {
+    await addCommand({ sessionToken: sessionId, name: opts.name, alias: opts.alias });
+  });
+
+cli
+  .command("ls", "List pinned sessions (TUI by default)")
+  .alias("list")
+  .option("--plain", "Print as a plain table")
+  .option("--all", "Include soft-deleted (unpinned) entries")
+  .action(async (opts: { plain?: boolean; all?: boolean }) => {
+    await listCommand({ plain: opts.plain, all: opts.all });
+  });
+
+cli
+  .command("resume <token>", "Resume a pinned session by alias or id prefix")
+  .action(async (token: string) => {
+    await resumeByToken(token);
+  });
+
+cli
+  .command("rm <token>", "Unpin (soft-delete) a pinned session")
+  .alias("remove")
+  .action(async (token: string) => {
+    await rmCommand(token);
+  });
+
+cli
+  .command("purge", "Permanently drop all unpinned entries").action(async () => {
+    await purgeCommand();
+  });
+
+cli
+  .command("rename <token> <newName>", "Rename a pin's display name")
+  .action(async (token: string, newName: string) => {
+    await renameCommand(token, newName);
+  });
+
+cli.help();
+cli.version("0.1.0");
+
+run();
+
+async function run() {
+  try {
+    cli.parse(process.argv, { run: false });
+    await cli.runMatchedCommand();
+  } catch (err) {
+    fail(err);
+  }
+}
+
+export function fail(err: unknown): never {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(msg);
+  process.exit(1);
+}
