@@ -116,7 +116,7 @@ async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
           const c = parsed.message.content;
           const text = typeof c === "string" ? c : Array.isArray(c) ? extractText(c) : "";
           const trimmed = text.trim();
-          if (trimmed) meta.firstPrompt = trimmed.slice(0, 200);
+          if (trimmed && !isSyntheticPrompt(trimmed)) meta.firstPrompt = trimmed.slice(0, 200);
         }
       }
     }
@@ -124,6 +124,12 @@ async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
     // fall through
   }
   return meta;
+}
+
+function isSyntheticPrompt(text: string): boolean {
+  // Claude Code injects synthetic <local-command-*> / <command-*> blocks for slash
+  // commands, hooks, etc. Skip these so we use the real first user prompt.
+  return /^<(local-)?command-/.test(text);
 }
 
 function extractText(parts: unknown[]): string {
