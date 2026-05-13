@@ -56,17 +56,17 @@ async function scanProjectDir(projectPath: string): Promise<SessionEntry[]> {
     const sessionId = file.slice(0, -".jsonl".length);
     try {
       const stats = await stat(full);
-      const firstPrompt = await readFirstUserPrompt(full);
+      const meta = await readJsonlMeta(full);
       out.push({
         sessionId,
         fullPath: full,
         fileMtime: stats.mtimeMs,
-        firstPrompt,
-        summary: firstPrompt.slice(0, 60),
+        firstPrompt: meta.firstPrompt,
+        summary: meta.aiTitle || meta.firstPrompt.slice(0, 60),
         messageCount: 0,
         created: stats.birthtime.toISOString(),
         modified: stats.mtime.toISOString(),
-        projectPath,
+        projectPath: meta.cwd || projectPath,
         isSidechain: false,
       });
     } catch {
@@ -76,27 +76,45 @@ async function scanProjectDir(projectPath: string): Promise<SessionEntry[]> {
   return out;
 }
 
-async function readFirstUserPrompt(jsonlPath: string): Promise<string> {
+type JsonlMeta = {
+  firstPrompt: string;
+  aiTitle: string;
+  cwd: string;
+};
+
+async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
+  const meta: JsonlMeta = { firstPrompt: "", aiTitle: "", cwd: "" };
   try {
     const raw = await readFile(jsonlPath, "utf8");
     for (const line of raw.split(/\r?\n/)) {
       if (!line) continue;
-      let parsed: { type?: string; message?: { role?: string; content?: unknown } };
+      let parsed: {
+        type?: string;
+        aiTitle?: string;
+        cwd?: string;
+        message?: { role?: string; content?: unknown };
+      };
       try {
         parsed = JSON.parse(line);
       } catch {
         continue;
       }
-      if (parsed.type !== "user" || parsed.message?.role !== "user") continue;
-      const c = parsed.message.content;
-      const text = typeof c === "string" ? c : Array.isArray(c) ? extractText(c) : "";
-      const trimmed = text.trim();
-      if (trimmed) return trimmed.slice(0, 200);
+      if (parsed.type === "ai-title" && typeof parsed.aiTitle === "string") {
+        meta.aiTitle = parsed.aiTitle; // latest wins
+      } else if (parsed.type === "user" && parsed.message?.role === "user") {
+        if (!meta.cwd && typeof parsed.cwd === "string") meta.cwd = parsed.cwd;
+        if (!meta.firstPrompt) {
+          const c = parsed.message.content;
+          const text = typeof c === "string" ? c : Array.isArray(c) ? extractText(c) : "";
+          const trimmed = text.trim();
+          if (trimmed) meta.firstPrompt = trimmed.slice(0, 200);
+        }
+      }
     }
   } catch {
     // fall through
   }
-  return "";
+  return meta;
 }
 
 function extractText(parts: unknown[]): string {

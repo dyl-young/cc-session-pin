@@ -14,6 +14,10 @@ export async function addCommand(opts: AddOptions): Promise<void> {
   const store = await loadStore();
   const existing = store.pins.find((p) => p.sessionId === entry.sessionId);
   if (existing) {
+    existing.summary = entry.summary || existing.summary;
+    existing.firstPrompt = entry.firstPrompt || existing.firstPrompt;
+    existing.lastModified = entry.modified || existing.lastModified;
+    if (opts.name?.trim()) existing.name = opts.name.trim();
     if (existing.status === "unpinned") {
       existing.status = "pinned";
       existing.pinnedAt = new Date().toISOString();
@@ -21,7 +25,8 @@ export async function addCommand(opts: AddOptions): Promise<void> {
       console.log(`Re-pinned ${existing.alias} (${entry.sessionId.slice(0, 8)})`);
       return;
     }
-    console.log(`Already pinned as ${existing.alias} (${entry.sessionId.slice(0, 8)})`);
+    await saveStore(store);
+    console.log(`Already pinned as ${existing.alias} (${entry.sessionId.slice(0, 8)}); cache refreshed.`);
     return;
   }
 
