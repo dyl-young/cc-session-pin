@@ -1,5 +1,4 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import { PINS_DIR, PINS_FILE } from "./paths.js";
 
 export type PinStatus = "pinned" | "unpinned";
@@ -45,7 +44,6 @@ export async function loadStore(): Promise<PinStore> {
 export async function saveStore(store: PinStore): Promise<void> {
   await mkdir(PINS_DIR, { recursive: true });
   const tmp = `${PINS_FILE}.${process.pid}.${Date.now()}.tmp`;
-  await mkdir(dirname(tmp), { recursive: true });
   await writeFile(tmp, JSON.stringify(store, null, 2) + "\n", "utf8");
   await rename(tmp, PINS_FILE);
 }
