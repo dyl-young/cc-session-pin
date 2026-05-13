@@ -97,7 +97,7 @@ async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcom
   const headerText = new TextRenderable(renderer, { content: header(widths), fg: "#8b949e" });
   const statusText = new TextRenderable(renderer, { content: statusLine(marks), fg: "#8b949e" });
   const hintText = new TextRenderable(renderer, {
-    content: "↑↓ navigate  ·  ⏎ resume  ·  ^U unpin  ·  ^P re-pin  ·  q quit",
+    content: "↑↓ navigate  ·  ⏎ resume  ·  ^U toggle pin  ·  q quit",
     fg: "#6e7681",
   });
 
@@ -147,13 +147,12 @@ async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcom
         return;
       }
       if (key.ctrl && key.name === "u") {
-        toggleMark(marks, currentPin(rows, select), "unpin");
-        refresh(rows, marks, widths, select, statusText);
-        return;
-      }
-      if (key.ctrl && key.name === "p") {
-        toggleMark(marks, currentPin(rows, select), "repin");
-        refresh(rows, marks, widths, select, statusText);
+        const pin = currentPin(rows, select);
+        if (pin) {
+          const mark: Mark = pin.status === "pinned" ? "unpin" : "repin";
+          toggleMark(marks, pin, mark);
+          refresh(rows, marks, widths, select, statusText);
+        }
         return;
       }
     });
