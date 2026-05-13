@@ -1,4 +1,4 @@
-import { findSession, findSessionByPrefix, latestSessionForCwd, type SessionEntry } from "../sessions.js";
+import { findSessionByPrefix, latestSessionForCwd, type SessionEntry } from "../sessions.js";
 import { loadStore, saveStore, type Pin } from "../store.js";
 import { bold, dim, green, yellow } from "../colors.js";
 
@@ -66,12 +66,6 @@ async function locateSession(token: string | undefined): Promise<SessionEntry> {
     return latest;
   }
 
-  if (isUuid(token)) {
-    const exact = await findSession(token);
-    if (!exact) throw new Error(`No session found with id ${token}.`);
-    return exact;
-  }
-
   const matches = await findSessionByPrefix(token);
   if (matches.length === 0) throw new Error(`No session found matching "${token}".`);
   if (matches.length > 1) {
@@ -79,8 +73,4 @@ async function locateSession(token: string | undefined): Promise<SessionEntry> {
     throw new Error(`Ambiguous session prefix "${token}". Candidates:\n${list}`);
   }
   return matches[0];
-}
-
-function isUuid(s: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }

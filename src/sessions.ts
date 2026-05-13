@@ -143,13 +143,6 @@ function extractText(parts: unknown[]): string {
   return "";
 }
 
-export async function findSession(sessionId: string): Promise<SessionEntry | undefined> {
-  for await (const entry of iterAllSessions()) {
-    if (entry.sessionId === sessionId) return entry;
-  }
-  return undefined;
-}
-
 export async function findSessionByPrefix(prefix: string): Promise<SessionEntry[]> {
   const matches: SessionEntry[] = [];
   for await (const entry of iterAllSessions()) {
