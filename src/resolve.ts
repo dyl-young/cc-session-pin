@@ -20,3 +20,11 @@ export function resolvePin(pins: Pin[], token: string): ResolveResult {
 
   return { ok: false, reason: "not-found" };
 }
+
+export function resolveOrThrow(pins: Pin[], token: string): Pin {
+  const result = resolvePin(pins, token);
+  if (result.ok) return result.pin;
+  if (result.reason === "not-found") throw new Error(`No pin matches "${token}".`);
+  const list = result.candidates.map((p) => `  ${p.sessionId}  ${p.name}`).join("\n");
+  throw new Error(`Ambiguous token "${token}". Candidates:\n${list}`);
+}

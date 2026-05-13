@@ -1,17 +1,12 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
-import { resolvePin } from "../resolve.js";
+import { resolveOrThrow } from "../resolve.js";
 import { loadStore, saveStore, type Pin } from "../store.js";
 
 export async function resumeByToken(token: string): Promise<void> {
   const store = await loadStore();
-  const result = resolvePin(store.pins, token);
-  if (!result.ok) {
-    if (result.reason === "not-found") throw new Error(`No pin matches "${token}".`);
-    const list = result.candidates.map((p) => `  ${p.sessionId}  ${p.name}`).join("\n");
-    throw new Error(`Ambiguous token "${token}". Candidates:\n${list}`);
-  }
-  await resumePin(result.pin);
+  const pin = resolveOrThrow(store.pins, token);
+  await resumePin(pin);
 }
 
 export async function resumePin(pin: Pin): Promise<void> {
