@@ -97,7 +97,7 @@ async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcom
   const headerText = new TextRenderable(renderer, { content: header(widths), fg: "#8b949e" });
   const statusText = new TextRenderable(renderer, { content: statusLine(marks), fg: "#8b949e" });
   const hintText = new TextRenderable(renderer, {
-    content: "↑↓ navigate  ·  ⏎ resume  ·  ^U toggle pin  ·  q quit",
+    content: "↑↓ navigate  ·  ⏎ resume  ·  ^X toggle pin  ·  q quit",
     fg: "#6e7681",
   });
 
@@ -146,7 +146,7 @@ async function runTui(rows: EnrichedPin[], opts: ListOptions): Promise<TuiOutcom
         finish({ action: "quit", marks });
         return;
       }
-      if (key.ctrl && key.name === "u") {
+      if (key.ctrl && key.name === "x") {
         const pin = currentPin(rows, select);
         if (pin) {
           const mark: Mark = pin.status === "pinned" ? "unpin" : "repin";
@@ -236,10 +236,8 @@ function formatRow(row: EnrichedPin, marks: Map<string, Mark>, w: ColumnWidths):
 }
 
 function markGlyph(status: Pin["status"], mark: Mark | undefined): string {
-  if (mark === "unpin") return "✗";
-  if (mark === "repin") return "+";
-  if (status === "unpinned") return "·";
-  return " ";
+  const willBePinned = mark === "repin" || (status === "pinned" && mark !== "unpin");
+  return willBePinned ? " " : "✗";
 }
 
 const SELECT_INDICATOR_WIDTH = 2; // SelectRenderable prepends "▶ " / "  " to each row
