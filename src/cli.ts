@@ -10,19 +10,18 @@ import { shellInitCommand } from "./commands/shell-init.js";
 
 const cli = cac("cc-pin");
 
+const addAction = (sessionId: string | undefined, opts: { name?: string }) =>
+  addCommand({ sessionToken: sessionId, name: opts.name });
+
 cli
   .command("[sessionId]", "Pin a session (defaults to latest in cwd)")
   .option("--name <name>", "Display name for the pin")
-  .action(async (sessionId: string | undefined, opts: { name?: string }) => {
-    await addCommand({ sessionToken: sessionId, name: opts.name });
-  });
+  .action(addAction);
 
 cli
   .command("add [sessionId]", "Pin a session explicitly")
   .option("--name <name>", "Display name")
-  .action(async (sessionId: string | undefined, opts: { name?: string }) => {
-    await addCommand({ sessionToken: sessionId, name: opts.name });
-  });
+  .action(addAction);
 
 cli
   .command("ls", "List pinned sessions (TUI by default)")
