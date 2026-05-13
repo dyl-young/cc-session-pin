@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { rmByCwd, rmCommand } from "./commands/rm.js";
 
 run();

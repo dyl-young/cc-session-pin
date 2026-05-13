@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { cac } from "cac";
 import { addCommand } from "./commands/add.js";
 import { listCommand } from "./commands/list.js";
