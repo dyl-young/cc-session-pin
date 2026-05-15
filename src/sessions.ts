@@ -1,6 +1,6 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { PROJECTS_DIR, encodeProjectPath, projectIndexFile } from "./paths.js";
+import { PROJECTS_DIR, encodeProjectPath } from "./paths.js";
 
 export type SessionEntry = {
   sessionId: string;
@@ -32,13 +32,24 @@ async function readIndex(indexPath: string): Promise<SessionEntry[]> {
 }
 
 export async function readSessionsForProject(projectPath: string): Promise<SessionEntry[]> {
-  const indexed = await readIndex(projectIndexFile(projectPath));
-  if (indexed.length > 0) return indexed;
-  return scanProjectDir(projectPath);
+  const localDir = join(PROJECTS_DIR, encodeProjectPath(projectPath));
+  const indexed = await readIndex(join(localDir, "sessions-index.json"));
+  if (indexed.length > 0) return pruneMissingFiles(indexed, localDir);
+  return scanDir(localDir, projectPath);
 }
 
-async function scanProjectDir(projectPath: string): Promise<SessionEntry[]> {
-  return scanDir(join(PROJECTS_DIR, encodeProjectPath(projectPath)), projectPath);
+async function pruneMissingFiles(entries: SessionEntry[], localDir: string): Promise<SessionEntry[]> {
+  const checks = await Promise.all(
+    entries.map(async (e) => {
+      try {
+        await stat(join(localDir, `${e.sessionId}.jsonl`));
+        return e;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return checks.filter((e): e is SessionEntry => e !== null);
 }
 
 async function scanEncodedDir(encodedName: string): Promise<SessionEntry[]> {
@@ -154,7 +165,11 @@ export async function findSessionByPrefix(prefix: string): Promise<SessionEntry[
 async function* iterAllSessions(): AsyncGenerator<SessionEntry> {
   const dirs = await listProjectDirs();
   for (const dir of dirs) {
-    const indexed = await readIndex(join(PROJECTS_DIR, dir, "sessions-index.json"));
+    const localDir = join(PROJECTS_DIR, dir);
+    const indexed = await pruneMissingFiles(
+      await readIndex(join(localDir, "sessions-index.json")),
+      localDir,
+    );
     const known = new Set<string>();
     for (const e of indexed) {
       known.add(e.sessionId);
