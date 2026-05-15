@@ -18,6 +18,7 @@ export async function addCommand(opts: AddOptions): Promise<void> {
     existing.lastModified = entry.modified || existing.lastModified;
     existing.gitBranch = entry.gitBranch ?? existing.gitBranch;
     if (opts.name?.trim()) existing.name = opts.name.trim();
+    else if (entry.summary) existing.name = entry.summary;
     if (existing.status === "unpinned") {
       existing.status = "pinned";
       existing.pinnedAt = new Date().toISOString();

@@ -57,14 +57,13 @@ Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries stil
 | ------------------------------------- | ------------------------------------------------------------------- |
 | `pin`                                 | Pin the most recently modified session in the current directory     |
 | `pin <sessionId>`                     | Pin a specific session by id (full or unique prefix)                |
-| `pin --name "..."`                    | Pin and override the auto-derived display name                      |
+| `pin -n "..."` / `pin --name "..."`   | Pin and override the auto-derived display name (sticky until next re-pin without `-n`) |
 | `pins`                                | Open the interactive TUI (`↑↓` navigate, `⏎` resume, `^X` toggle, `q` quit) |
 | `pins --plain`                        | Print a plain table for piping / scripting                          |
 | `pins --all`                          | Include soft-deleted entries in the list                            |
 | `unpin`                               | Soft-delete the pin matching the current directory                  |
 | `unpin <token>`                       | Soft-delete a pin by id (full or prefix) or name substring          |
 | `cc-pin resume <token>`               | Resume a pinned session directly (no TUI)                           |
-| `cc-pin rename <token> "<new name>"`  | Rename a pin's display name                                         |
 | `cc-pin purge`                        | Permanently drop all soft-deleted entries                           |
 | `cc-pin shell-init [zsh\|bash\|fish]` | Print the shell wrapper (see [Shell integration](#shell-integration-recommended)) |
 

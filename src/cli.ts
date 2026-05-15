@@ -3,7 +3,6 @@ import { cac } from "cac";
 import { addCommand } from "./commands/add.js";
 import { listCommand } from "./commands/list.js";
 import { purgeCommand } from "./commands/purge.js";
-import { renameCommand } from "./commands/rename.js";
 import { rmCommand } from "./commands/rm.js";
 import { resumeByToken } from "./commands/resume.js";
 import { shellInitCommand } from "./commands/shell-init.js";
@@ -16,12 +15,12 @@ const addAction = (sessionId: string | undefined, opts: { name?: string }) =>
 
 cli
   .command("[sessionId]", "Pin a session (defaults to latest in cwd)")
-  .option("--name <name>", "Display name for the pin")
+  .option("-n, --name <name>", "Display name for the pin (overrides aiTitle)")
   .action(addAction);
 
 cli
   .command("add [sessionId]", "Pin a session explicitly")
-  .option("--name <name>", "Display name")
+  .option("-n, --name <name>", "Display name (overrides aiTitle)")
   .action(addAction);
 
 cli
@@ -49,12 +48,6 @@ cli
 cli
   .command("purge", "Permanently drop all unpinned entries").action(async () => {
     await purgeCommand();
-  });
-
-cli
-  .command("rename <token> <newName>", "Rename a pin's display name")
-  .action(async (token: string, newName: string) => {
-    await renameCommand(token, newName);
   });
 
 cli
