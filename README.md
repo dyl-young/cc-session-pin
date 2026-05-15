@@ -58,7 +58,8 @@ Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries stil
 | `pin`                                 | Pin the most recently modified session in the current directory     |
 | `pin <sessionId>`                     | Pin a specific session by id (full or unique prefix)                |
 | `pin -n "..."` / `pin --name "..."`   | Pin and override the auto-derived display name (sticky until next re-pin without `-n`) |
-| `pins`                                | Open the interactive TUI (`↑↓` navigate, `⏎` resume, `^X` toggle, `q` quit) |
+| `pins`                                | Open the interactive TUI (`↑↓` navigate, `⏎` resume, `^X` toggle, `/` filter, `q` quit) |
+| `pins <filter>`                       | Open the TUI prefiltered to pins whose project path contains `<filter>` (case-insensitive) |
 | `pins --plain`                        | Print a plain table for piping / scripting                          |
 | `pins --all`                          | Include soft-deleted entries in the list                            |
 | `unpin`                               | Soft-delete the pin matching the current directory                  |
@@ -71,8 +72,8 @@ Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries stil
 
 ### Notes
 
-- **Pinning:** display names come from the session's `aiTitle` metadata, so they match what `claude -r` shows. Override with `--name`.
-- **TUI:** `^X` stages a pin/unpin toggle on the highlighted row; changes apply when you quit. Soft-deleted entries hide from `pins` but still show in `pins --all`, where you can re-pin them with `^X`.
+- **Pinning:** display names come from the session's `aiTitle` metadata, so they match what `claude -r` shows. Override with `-n` / `--name`. The name re-syncs to the latest `aiTitle` on every re-pin unless `-n` is passed again, so a custom name is sticky only as long as you don't re-pin without it.
+- **TUI:** `^X` stages a pin/unpin toggle on the highlighted row; changes apply when you quit. Soft-deleted entries hide from `pins` but still show in `pins --all`, where you can re-pin them with `^X`. Press `/` to filter rows live by project path; `⏎` exits filter-edit mode and keeps the filter, `esc` clears it.
 - **Skills:** inside Claude Code, the bundled `pin` / `unpin` skills (see [Skills](#skills)) wrap the same commands so you can pin without leaving the chat.
 
 ## Skills
