@@ -17,7 +17,12 @@ import { resumePin } from "./resume.js";
 export type ListOptions = {
   plain?: boolean;
   all?: boolean;
+  filter?: string;
 };
+
+function matchesFilter(pin: Pin, filter: string): boolean {
+  return pin.projectPath.toLowerCase().includes(filter.toLowerCase());
+}
 
 type Mark = "unpin" | "repin";
 
@@ -30,16 +35,22 @@ type EnrichedPin = {
 
 export async function listCommand(opts: ListOptions): Promise<void> {
   const store = await loadStore();
-  const visiblePins = opts.all
+  const initialFilter = opts.filter?.trim() ?? "";
+  let visiblePins = opts.all
     ? store.pins
     : store.pins.filter((p) => p.status === "pinned");
 
+  if (opts.plain && initialFilter) {
+    visiblePins = visiblePins.filter((p) => matchesFilter(p, initialFilter));
+  }
+
   if (visiblePins.length === 0) {
-    console.log(
-      opts.all
+    const emptyMsg = initialFilter
+      ? `No pinned sessions match "${initialFilter}".`
+      : opts.all
         ? "No pins yet."
-        : "No pinned sessions. Run `cc-pin` in a project directory to add one.",
-    );
+        : "No pinned sessions. Run `cc-pin` in a project directory to add one.";
+    console.log(emptyMsg);
     return;
   }
 
@@ -51,7 +62,7 @@ export async function listCommand(opts: ListOptions): Promise<void> {
     return;
   }
 
-  const outcome = await runTui(rows);
+  const outcome = await runTui(rows, initialFilter);
   await applyMarks(store, outcome.marks);
   if (outcome.action === "resume") {
     await resumePin(outcome.pin, store);
@@ -74,7 +85,7 @@ type TuiOutcome =
   | { action: "resume"; pin: Pin; marks: Map<string, Mark> }
   | { action: "quit"; marks: Map<string, Mark> };
 
-async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
+async function runTui(rows: EnrichedPin[], initialFilter: string): Promise<TuiOutcome> {
   const renderer = await createCliRenderer({
     screenMode: "split-footer",
     footerHeight: computeFooterHeight(rows.length),
@@ -82,11 +93,18 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
     backgroundColor: "transparent",
   });
   const marks = new Map<string, Mark>();
+  let filterText = initialFilter;
+  let filterMode = false;
 
   const widths = computeWidths(renderer.width, rows);
 
+  const visible = (): EnrichedPin[] =>
+    filterText
+      ? rows.filter((r) => matchesFilter(r.pin, filterText))
+      : rows;
+
   const select = new SelectRenderable(renderer, {
-    options: buildOptions(rows, marks, widths),
+    options: buildOptions(visible(), marks, widths),
     selectedIndex: 0,
     wrapSelection: true,
     showDescription: false,
@@ -103,9 +121,9 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
   const headerText = new TextRenderable(renderer, { content: header(widths), fg: PALETTE.faint });
   const statusText = new TextRenderable(renderer, { content: statusLine(marks), fg: PALETTE.faint });
   const idText = new TextRenderable(renderer, { content: "", fg: PALETTE.dim });
-  populateFooter(idText, rows[0]);
+  populateFooter(idText, visible()[0]);
   const hintText = new TextRenderable(renderer, {
-    content: "↑↓ navigate  ·  ⏎ resume  ·  ^X toggle pin  ·  q quit",
+    content: hintLine(filterText, filterMode),
     fg: PALETTE.dim,
   });
 
@@ -130,6 +148,14 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
   select.focus();
   renderer.start();
 
+  const rerenderFilter = () => {
+    const v = visible();
+    select.options = buildOptions(v, marks, widths);
+    select.setSelectedIndex(0);
+    populateFooter(idText, v[0]);
+    hintText.content = hintLine(filterText, filterMode);
+  };
+
   return await new Promise<TuiOutcome>((resolve) => {
     const finish = (out: TuiOutcome) => {
       try {
@@ -141,7 +167,7 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
     };
 
     select.on(SelectRenderableEvents.SELECTION_CHANGED, () => {
-      const row = rows[select.getSelectedIndex()];
+      const row = visible()[select.getSelectedIndex()];
       populateFooter(idText, row);
     });
 
@@ -152,6 +178,31 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
     });
 
     renderer.keyInput.on("keypress", (key: KeyEvent) => {
+      if (filterMode) {
+        if (key.name === "escape") {
+          filterText = "";
+          filterMode = false;
+          rerenderFilter();
+          return;
+        }
+        if (key.name === "return") {
+          filterMode = false;
+          hintText.content = hintLine(filterText, filterMode);
+          return;
+        }
+        if (key.name === "backspace") {
+          filterText = filterText.slice(0, -1);
+          rerenderFilter();
+          return;
+        }
+        const ch = printableChar(key);
+        if (ch) {
+          filterText += ch;
+          rerenderFilter();
+        }
+        return;
+      }
+
       if (key.name === "escape" || (key.name === "q" && !key.ctrl && !key.meta)) {
         finish({ action: "quit", marks });
         return;
@@ -161,16 +212,34 @@ async function runTui(rows: EnrichedPin[]): Promise<TuiOutcome> {
         return;
       }
       if (key.ctrl && key.name === "x") {
-        const pin = currentPin(rows, select);
+        const pin = currentPin(visible(), select);
         if (pin) {
           const mark: Mark = pin.status === "pinned" ? "unpin" : "repin";
           toggleMark(marks, pin, mark);
-          refresh(rows, marks, widths, select, statusText);
+          refresh(visible(), marks, widths, select, statusText);
         }
+        return;
+      }
+      if (key.name === "/" && !key.ctrl && !key.meta) {
+        filterMode = true;
+        hintText.content = hintLine(filterText, filterMode);
         return;
       }
     });
   });
+}
+
+function printableChar(key: KeyEvent): string | null {
+  if (key.ctrl || key.meta) return null;
+  const seq = key.sequence;
+  if (typeof seq === "string" && seq.length === 1 && seq >= " " && seq <= "~") return seq;
+  return null;
+}
+
+function hintLine(filterText: string, filterMode: boolean): string {
+  if (filterMode) return `filter: ${filterText}_  ·  ⇧ + ⏎ apply  ·  ⏎ resume  ·  esc clear`;
+  const base = "↑↓ navigate  ·  ⏎ resume  ·  ^X toggle pin  ·  / filter  ·  q quit";
+  return filterText ? `${base}  ·  filter: "${filterText}"` : base;
 }
 
 function currentPin(rows: EnrichedPin[], select: SelectRenderable): Pin | undefined {

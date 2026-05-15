@@ -25,12 +25,12 @@ cli
   .action(addAction);
 
 cli
-  .command("ls", "List pinned sessions (TUI by default)")
+  .command("ls [filter]", "List pinned sessions (TUI by default; optional project-path filter)")
   .alias("list")
   .option("--plain", "Print as a plain table")
   .option("--all", "Include soft-deleted (unpinned) entries")
-  .action(async (opts: { plain?: boolean; all?: boolean }) => {
-    await listCommand({ plain: opts.plain, all: opts.all });
+  .action(async (filter: string | undefined, opts: { plain?: boolean; all?: boolean }) => {
+    await listCommand({ plain: opts.plain, all: opts.all, filter });
   });
 
 cli
