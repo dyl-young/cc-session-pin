@@ -85,7 +85,7 @@ async function scanDir(dir: string, fallbackProjectPath: string | null): Promise
         fullPath: full,
         fileMtime: stats.mtimeMs,
         firstPrompt: meta.firstPrompt,
-        summary: meta.aiTitle || meta.firstPrompt.slice(0, 60),
+        summary: meta.customTitle || meta.aiTitle || meta.firstPrompt.slice(0, 60),
         modified: stats.mtime.toISOString(),
         gitBranch: meta.gitBranch || undefined,
         projectPath,
@@ -101,12 +101,13 @@ async function scanDir(dir: string, fallbackProjectPath: string | null): Promise
 type JsonlMeta = {
   firstPrompt: string;
   aiTitle: string;
+  customTitle: string;
   cwd: string;
   gitBranch: string;
 };
 
 async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
-  const meta: JsonlMeta = { firstPrompt: "", aiTitle: "", cwd: "", gitBranch: "" };
+  const meta: JsonlMeta = { firstPrompt: "", aiTitle: "", customTitle: "", cwd: "", gitBranch: "" };
   try {
     const raw = await readFile(jsonlPath, "utf8");
     for (const line of raw.split(/\r?\n/)) {
@@ -114,6 +115,7 @@ async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
       let parsed: {
         type?: string;
         aiTitle?: string;
+        customTitle?: string;
         cwd?: string;
         gitBranch?: string;
         message?: { role?: string; content?: unknown };
@@ -125,6 +127,8 @@ async function readJsonlMeta(jsonlPath: string): Promise<JsonlMeta> {
       }
       if (parsed.type === "ai-title" && typeof parsed.aiTitle === "string") {
         meta.aiTitle = parsed.aiTitle; // latest wins
+      } else if (parsed.type === "custom-title" && typeof parsed.customTitle === "string") {
+        meta.customTitle = parsed.customTitle; // latest wins; user-set via /rename
       } else if (parsed.type === "user" && parsed.message?.role === "user") {
         if (!meta.cwd && typeof parsed.cwd === "string") meta.cwd = parsed.cwd;
         if (typeof parsed.gitBranch === "string" && parsed.gitBranch) {
