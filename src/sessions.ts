@@ -33,9 +33,14 @@ async function readIndex(indexPath: string): Promise<SessionEntry[]> {
 
 export async function readSessionsForProject(projectPath: string): Promise<SessionEntry[]> {
   const localDir = join(PROJECTS_DIR, encodeProjectPath(projectPath));
-  const indexed = await readIndex(join(localDir, "sessions-index.json"));
-  if (indexed.length > 0) return pruneMissingFiles(indexed, localDir);
-  return scanDir(localDir, projectPath);
+  const indexed = await pruneMissingFiles(
+    await readIndex(join(localDir, "sessions-index.json")),
+    localDir,
+  );
+  const known = new Set(indexed.map((e) => e.sessionId));
+  const scanned = await scanDir(localDir, projectPath);
+  const extras = scanned.filter((s) => !known.has(s.sessionId));
+  return [...indexed, ...extras];
 }
 
 async function pruneMissingFiles(entries: SessionEntry[], localDir: string): Promise<SessionEntry[]> {

@@ -63,7 +63,7 @@ export async function listCommand(opts: ListOptions): Promise<void> {
   }
 
   const outcome = await runTui(rows, initialFilter);
-  await applyMarks(store, outcome.marks);
+  await persistChanges(store, outcome.marks, outcome.namesEdited);
   if (outcome.action === "resume") {
     await resumePin(outcome.pin, store);
   }
@@ -82,8 +82,10 @@ async function enrich(pin: Pin): Promise<EnrichedPin> {
 }
 
 type TuiOutcome =
-  | { action: "resume"; pin: Pin; marks: Map<string, Mark> }
-  | { action: "quit"; marks: Map<string, Mark> };
+  | { action: "resume"; pin: Pin; marks: Map<string, Mark>; namesEdited: boolean }
+  | { action: "quit"; marks: Map<string, Mark>; namesEdited: boolean };
+
+type Mode = "normal" | "filter" | "rename";
 
 async function runTui(rows: EnrichedPin[], initialFilter: string): Promise<TuiOutcome> {
   const renderer = await createCliRenderer({
@@ -94,7 +96,10 @@ async function runTui(rows: EnrichedPin[], initialFilter: string): Promise<TuiOu
   });
   const marks = new Map<string, Mark>();
   let filterText = initialFilter;
-  let filterMode = false;
+  let mode: Mode = "normal";
+  let renameText = "";
+  let renamingPin: Pin | undefined;
+  let namesEdited = false;
 
   const widths = computeWidths(renderer.width, rows);
 
@@ -123,7 +128,7 @@ async function runTui(rows: EnrichedPin[], initialFilter: string): Promise<TuiOu
   const idText = new TextRenderable(renderer, { content: "", fg: PALETTE.dim });
   populateFooter(idText, visible()[0]);
   const hintText = new TextRenderable(renderer, {
-    content: hintLine(filterText, filterMode),
+    content: hintLine(mode, filterText, renameText),
     fg: PALETTE.dim,
   });
 
@@ -153,7 +158,15 @@ async function runTui(rows: EnrichedPin[], initialFilter: string): Promise<TuiOu
     select.options = buildOptions(v, marks, widths);
     select.setSelectedIndex(0);
     populateFooter(idText, v[0]);
-    hintText.content = hintLine(filterText, filterMode);
+    hintText.content = hintLine(mode, filterText, renameText);
+  };
+
+  const rerenderRows = () => {
+    const v = visible();
+    const idx = select.getSelectedIndex();
+    select.options = buildOptions(v, marks, widths);
+    select.setSelectedIndex(Math.min(idx, Math.max(0, v.length - 1)));
+    hintText.content = hintLine(mode, filterText, renameText);
   };
 
   return await new Promise<TuiOutcome>((resolve) => {
@@ -172,22 +185,23 @@ async function runTui(rows: EnrichedPin[], initialFilter: string): Promise<TuiOu
     });
 
     select.on(SelectRenderableEvents.ITEM_SELECTED, (_index: number, option: SelectOption) => {
+      if (mode !== "normal") return;
       const pin = option?.value as Pin | undefined;
       if (!pin) return;
-      finish({ action: "resume", pin, marks });
+      finish({ action: "resume", pin, marks, namesEdited });
     });
 
     renderer.keyInput.on("keypress", (key: KeyEvent) => {
-      if (filterMode) {
+      if (mode === "filter") {
         if (key.name === "escape") {
           filterText = "";
-          filterMode = false;
+          mode = "normal";
           rerenderFilter();
           return;
         }
         if (key.name === "return") {
-          filterMode = false;
-          hintText.content = hintLine(filterText, filterMode);
+          mode = "normal";
+          hintText.content = hintLine(mode, filterText, renameText);
           return;
         }
         if (key.name === "backspace") {
@@ -203,12 +217,45 @@ async function runTui(rows: EnrichedPin[], initialFilter: string): Promise<TuiOu
         return;
       }
 
+      if (mode === "rename") {
+        if (key.name === "escape") {
+          mode = "normal";
+          renamingPin = undefined;
+          renameText = "";
+          hintText.content = hintLine(mode, filterText, renameText);
+          return;
+        }
+        if (key.name === "return") {
+          const trimmed = renameText.trim();
+          if (renamingPin && trimmed && renamingPin.name !== trimmed) {
+            renamingPin.name = trimmed;
+            namesEdited = true;
+          }
+          mode = "normal";
+          renamingPin = undefined;
+          renameText = "";
+          rerenderRows();
+          return;
+        }
+        if (key.name === "backspace") {
+          renameText = renameText.slice(0, -1);
+          hintText.content = hintLine(mode, filterText, renameText);
+          return;
+        }
+        const ch = printableChar(key);
+        if (ch) {
+          renameText += ch;
+          hintText.content = hintLine(mode, filterText, renameText);
+        }
+        return;
+      }
+
       if (key.name === "escape" || (key.name === "q" && !key.ctrl && !key.meta)) {
-        finish({ action: "quit", marks });
+        finish({ action: "quit", marks, namesEdited });
         return;
       }
       if (key.ctrl && key.name === "c") {
-        finish({ action: "quit", marks });
+        finish({ action: "quit", marks, namesEdited });
         return;
       }
       if (key.ctrl && key.name === "x") {
@@ -220,9 +267,19 @@ async function runTui(rows: EnrichedPin[], initialFilter: string): Promise<TuiOu
         }
         return;
       }
+      if (key.ctrl && key.name === "r") {
+        const pin = currentPin(visible(), select);
+        if (pin) {
+          renamingPin = pin;
+          renameText = pin.name;
+          mode = "rename";
+          hintText.content = hintLine(mode, filterText, renameText);
+        }
+        return;
+      }
       if (key.name === "/" && !key.ctrl && !key.meta) {
-        filterMode = true;
-        hintText.content = hintLine(filterText, filterMode);
+        mode = "filter";
+        hintText.content = hintLine(mode, filterText, renameText);
         return;
       }
     });
@@ -236,9 +293,10 @@ function printableChar(key: KeyEvent): string | null {
   return null;
 }
 
-function hintLine(filterText: string, filterMode: boolean): string {
-  if (filterMode) return `filter: ${filterText}_  ·  ⇧ + ⏎ apply  ·  ⏎ resume  ·  esc clear`;
-  const base = "↑↓ navigate  ·  ⏎ resume  ·  ^X toggle pin  ·  / filter  ·  q quit";
+function hintLine(mode: Mode, filterText: string, renameText: string): string {
+  if (mode === "filter") return `filter: ${filterText}_  ·  ⇧ + ⏎ apply  ·  esc clear`;
+  if (mode === "rename") return `rename: ${renameText}_  ·  ⇧ + ⏎ save  ·  esc cancel`;
+  const base = "↑↓ navigate  ·  ⏎ resume  ·  ^X toggle pin  ·  ^R rename  ·  / filter  ·  q quit";
   return filterText ? `${base}  ·  filter: "${filterText}"` : base;
 }
 
@@ -416,9 +474,8 @@ function relativeTime(iso?: string): string {
   return `${Math.round(day / 365)}y ago`;
 }
 
-async function applyMarks(store: PinStore, marks: Map<string, Mark>) {
-  if (marks.size === 0) return;
-  let changed = false;
+async function persistChanges(store: PinStore, marks: Map<string, Mark>, namesEdited: boolean) {
+  let changed = namesEdited;
   for (const [sessionId, mark] of marks) {
     const pin = store.pins.find((p) => p.sessionId === sessionId);
     if (!pin) continue;
