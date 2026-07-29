@@ -60,6 +60,7 @@ Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries stil
 | `pin -n "..."` / `pin --name "..."`   | Pin and override the auto-derived display name (sticky until next re-pin without `-n`) |
 | `pins`                                | Open the interactive TUI (`↑↓` navigate, `⏎` resume, `^X` toggle, `^R` rename, `/` filter, `q` quit) |
 | `pins <filter>`                       | Open the TUI prefiltered to pins whose project path contains `<filter>` (case-insensitive) |
+| `pins <filter> -N`                    | Same, but match the chat name instead of the project path (`--by-name`, or `--by project\|name`) |
 | `pins --plain`                        | Print a plain table for piping / scripting                          |
 | `pins --all`                          | Include soft-deleted entries in the list                            |
 | `unpin`                               | Soft-delete the pin matching the current directory                  |
@@ -73,7 +74,7 @@ Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries stil
 ### Notes
 
 - **Pinning:** display names come from the session's `aiTitle` metadata, so they match what `claude -r` shows. Override with `-n` / `--name`. The name re-syncs to the latest `aiTitle` on every re-pin unless `-n` is passed again, so a custom name is sticky only as long as you don't re-pin without it.
-- **TUI:** `^X` stages a pin/unpin toggle on the highlighted row; changes apply when you quit. Soft-deleted entries hide from `pins` but still show in `pins --all`, where you can re-pin them with `^X`. Press `^R` to rename the highlighted row inline (`⏎` saves, `esc` cancels). Press `/` to filter rows live by project path; `⏎` exits filter-edit mode and keeps the filter, `esc` clears it.
+- **TUI:** `^X` stages a pin/unpin toggle on the highlighted row; changes apply when you quit. Soft-deleted entries hide from `pins` but still show in `pins --all`, where you can re-pin them with `^X`. Press `^R` to rename the highlighted row inline (`⏎` saves, `esc` cancels). Press `/` to filter rows live; `⏎` exits filter-edit mode and keeps the filter, `esc` clears it. Press `⇥` to switch what the filter matches — project path or chat name — which re-filters in place, so you can find a chat by name when you don't remember its project. The active scope is shown in the hint line (`filter project:` / `filter name:`), and `-N` / `--by name` sets the starting scope.
 - **Skills:** inside Claude Code, the bundled `pin` / `unpin` skills (see [Skills](#skills)) wrap the same commands so you can pin without leaving the chat.
 
 ## Skills

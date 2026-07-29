@@ -24,13 +24,24 @@ cli
   .action(addAction);
 
 cli
-  .command("ls [filter]", "List pinned sessions (TUI by default; optional project-path filter)")
+  .command("ls [filter]", "List pinned sessions (TUI by default; optional filter)")
   .alias("list")
   .option("--plain", "Print as a plain table")
   .option("--all", "Include soft-deleted (unpinned) entries")
-  .action(async (filter: string | undefined, opts: { plain?: boolean; all?: boolean }) => {
-    await listCommand({ plain: opts.plain, all: opts.all, filter });
-  });
+  .option("--by <field>", "Filter on 'project' path or chat 'name' (default: project)")
+  .option("-N, --by-name", "Shorthand for --by name")
+  .action(
+    async (
+      filter: string | undefined,
+      opts: { plain?: boolean; all?: boolean; by?: string; byName?: boolean },
+    ) => {
+      const by = opts.byName ? "name" : opts.by;
+      if (by !== undefined && by !== "project" && by !== "name") {
+        throw new Error(`--by must be 'project' or 'name' (got '${by}')`);
+      }
+      await listCommand({ plain: opts.plain, all: opts.all, filter, filterBy: by });
+    },
+  );
 
 cli
   .command("resume <token>", "Resume a pinned session by id prefix or name substring")
