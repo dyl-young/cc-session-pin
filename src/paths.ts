@@ -7,7 +7,7 @@ export const PINS_DIR = join(CLAUDE_HOME, "pinned-sessions");
 export const PINS_FILE = join(PINS_DIR, "pins.json");
 
 export function encodeProjectPath(projectPath: string): string {
-  return projectPath.replace(/\//g, "-");
+  return projectPath.replace(/[^a-zA-Z0-9]/g, "-");
 }
 
 export function projectIndexFile(projectPath: string): string {
