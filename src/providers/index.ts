@@ -1,9 +1,10 @@
 import { claudeProvider } from "./claude.js";
+import { cursorProvider } from "./cursor.js";
 import type { Provider, ProviderId, SessionEntry } from "./types.js";
 
 export type { Provider, ProviderId, SessionEntry } from "./types.js";
 
-export const PROVIDERS: Provider[] = [claudeProvider];
+export const PROVIDERS: Provider[] = [claudeProvider, cursorProvider];
 
 export function providerFor(id: ProviderId): Provider {
   const found = PROVIDERS.find((p) => p.id === id);
