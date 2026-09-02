@@ -4,11 +4,15 @@ import type { ProviderId } from "./providers/types.js";
 
 export type PinStatus = "pinned" | "unpinned";
 
+/** Where `name` came from: the agent's own title, or the user overriding it. */
+export type NameSource = "provider" | "user";
+
 export type Pin = {
   sessionId: string;
   provider: ProviderId;
   projectPath: string;
   name: string;
+  nameSource: NameSource;
   pinnedAt: string;
   status: PinStatus;
   summary?: string;
@@ -36,7 +40,11 @@ export async function loadStore(): Promise<PinStore> {
     if (parsed.version !== 1 || !Array.isArray(parsed.pins)) {
       throw new Error(`Unexpected pins.json shape at ${PINS_FILE}`);
     }
-    const pins = parsed.pins.map((p) => ({ ...p, provider: p.provider ?? "claude" }));
+    const pins = parsed.pins.map((p) => ({
+      ...p,
+      provider: p.provider ?? "claude",
+      nameSource: p.nameSource ?? (p.summary && p.name !== p.summary ? "user" : "provider"),
+    }));
     return { version: 1, pins, state: parsed.state };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return { ...EMPTY };

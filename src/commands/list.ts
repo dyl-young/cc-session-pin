@@ -36,6 +36,7 @@ type Mark = "unpin" | "repin";
 
 type EnrichedPin = {
   pin: Pin;
+  nameRefreshed: boolean;
   lastModified?: string;
   gitBranch?: string;
   missing: boolean;
@@ -64,15 +65,17 @@ export async function listCommand(opts: ListOptions): Promise<void> {
   }
 
   const rows = await Promise.all(visiblePins.map(enrich));
+  const nameRefreshed = rows.some((r) => r.nameRefreshed);
   rows.sort((a, b) => (b.lastModified || "").localeCompare(a.lastModified || ""));
 
   if (opts.plain) {
+    if (nameRefreshed) await saveStore(store);
     printPlain(rows);
     return;
   }
 
   const outcome = await runTui(rows, initialFilter, initialScope);
-  await persistChanges(store, outcome.marks, outcome.namesEdited);
+  await persistChanges(store, outcome.marks, outcome.namesEdited || nameRefreshed);
   if (outcome.action === "resume") {
     await resumePin(outcome.pin, store);
   }
@@ -83,8 +86,16 @@ async function enrich(pin: Pin): Promise<EnrichedPin> {
   const live = (await provider.sessionsForProject(pin.projectPath)).find(
     (e) => e.sessionId === pin.sessionId,
   );
+  // Track the agent's own title unless the user has overridden it here, so a
+  // /rename inside Claude or Cursor shows up on the next listing.
+  let nameRefreshed = false;
+  if (pin.nameSource !== "user" && live?.summary && live.summary !== pin.name) {
+    pin.name = live.summary;
+    nameRefreshed = true;
+  }
   return {
     pin,
+    nameRefreshed,
     lastModified: live?.modified ?? pin.lastModified,
     gitBranch: live?.gitBranch || pin.gitBranch,
     missing: !live,
@@ -252,6 +263,7 @@ async function runTui(
           const trimmed = renameText.trim();
           if (renamingPin && trimmed && renamingPin.name !== trimmed) {
             renamingPin.name = trimmed;
+            renamingPin.nameSource = "user";
             namesEdited = true;
           }
           mode = "normal";

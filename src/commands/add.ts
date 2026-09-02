@@ -5,6 +5,7 @@ import { bold, dim, green, yellow } from "../colors.js";
 export type AddOptions = {
   sessionToken?: string;
   name?: string;
+  syncName?: boolean;
 };
 
 export async function addCommand(opts: AddOptions): Promise<void> {
@@ -17,8 +18,16 @@ export async function addCommand(opts: AddOptions): Promise<void> {
     existing.firstPrompt = entry.firstPrompt || existing.firstPrompt;
     existing.lastModified = entry.modified || existing.lastModified;
     existing.gitBranch = entry.gitBranch ?? existing.gitBranch;
-    if (opts.name?.trim()) existing.name = opts.name.trim();
-    else if (entry.summary) existing.name = entry.summary;
+    const custom = opts.name?.trim();
+    if (custom) {
+      existing.name = custom;
+      existing.nameSource = "user";
+    } else if (opts.syncName) {
+      if (entry.summary) existing.name = entry.summary;
+      existing.nameSource = "provider";
+    } else if (existing.nameSource !== "user" && entry.summary) {
+      existing.name = entry.summary;
+    }
     if (existing.status === "unpinned") {
       existing.status = "pinned";
       existing.pinnedAt = new Date().toISOString();
@@ -38,6 +47,7 @@ export async function addCommand(opts: AddOptions): Promise<void> {
     provider: entry.provider,
     projectPath: entry.projectPath,
     name,
+    nameSource: opts.name?.trim() ? "user" : "provider",
     pinnedAt: new Date().toISOString(),
     status: "pinned",
     summary: entry.summary,
