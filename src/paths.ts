@@ -4,8 +4,11 @@ import { join } from "node:path";
 
 export const CLAUDE_HOME = join(homedir(), ".claude");
 export const PROJECTS_DIR = join(CLAUDE_HOME, "projects");
-export const PINS_DIR = join(CLAUDE_HOME, "pinned-sessions");
+export const PINS_DIR = join(homedir(), ".ai-session-pin");
 export const PINS_FILE = join(PINS_DIR, "pins.json");
+
+/** Where pins lived before the tool covered more than Claude Code. */
+export const LEGACY_PINS_FILE = join(CLAUDE_HOME, "pinned-sessions", "pins.json");
 
 export function encodeProjectPath(projectPath: string): string {
   return projectPath.replace(/[^a-zA-Z0-9]/g, "-");
