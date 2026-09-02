@@ -11,7 +11,7 @@ import {
   type SelectOption,
 } from "@opentui/core";
 import { loadStore, saveStore, type Pin, type PinStore } from "../store.js";
-import { readSessionsForProject } from "../sessions.js";
+import { providerFor } from "../providers/index.js";
 import { resumePin } from "./resume.js";
 
 export type FilterScope = "project" | "name";
@@ -79,7 +79,8 @@ export async function listCommand(opts: ListOptions): Promise<void> {
 }
 
 async function enrich(pin: Pin): Promise<EnrichedPin> {
-  const live = (await readSessionsForProject(pin.projectPath)).find(
+  const provider = providerFor(pin.provider);
+  const live = (await provider.sessionsForProject(pin.projectPath)).find(
     (e) => e.sessionId === pin.sessionId,
   );
   return {

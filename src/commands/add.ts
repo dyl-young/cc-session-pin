@@ -1,4 +1,4 @@
-import { findSessionByPrefix, latestSessionForCwd, type SessionEntry } from "../sessions.js";
+import { findByPrefix, latestForCwd, type SessionEntry } from "../providers/index.js";
 import { loadStore, saveStore, type Pin } from "../store.js";
 import { bold, dim, green, yellow } from "../colors.js";
 
@@ -35,6 +35,7 @@ export async function addCommand(opts: AddOptions): Promise<void> {
 
   const pin: Pin = {
     sessionId: entry.sessionId,
+    provider: entry.provider,
     projectPath: entry.projectPath,
     name,
     pinnedAt: new Date().toISOString(),
@@ -60,14 +61,14 @@ function printPinSummary(verb: string, pin: Pin, opts: { footer?: string } = {})
 
 async function locateSession(token: string | undefined): Promise<SessionEntry> {
   if (!token) {
-    const latest = await latestSessionForCwd(process.cwd());
+    const latest = await latestForCwd(process.cwd());
     if (!latest) {
-      throw new Error(`No Claude Code sessions found for ${process.cwd()}. Provide a session id explicitly.`);
+      throw new Error(`No agent sessions found for ${process.cwd()}. Provide a session id explicitly.`);
     }
     return latest;
   }
 
-  const matches = await findSessionByPrefix(token);
+  const matches = await findByPrefix(token);
   if (matches.length === 0) throw new Error(`No session found matching "${token}".`);
   if (matches.length > 1) {
     const list = matches.map((m) => `  ${m.sessionId}  ${m.summary || m.firstPrompt.slice(0, 50)}`).join("\n");

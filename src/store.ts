@@ -1,10 +1,12 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { PINS_DIR, PINS_FILE } from "./paths.js";
+import type { ProviderId } from "./providers/types.js";
 
 export type PinStatus = "pinned" | "unpinned";
 
 export type Pin = {
   sessionId: string;
+  provider: ProviderId;
   projectPath: string;
   name: string;
   pinnedAt: string;
@@ -34,7 +36,8 @@ export async function loadStore(): Promise<PinStore> {
     if (parsed.version !== 1 || !Array.isArray(parsed.pins)) {
       throw new Error(`Unexpected pins.json shape at ${PINS_FILE}`);
     }
-    return { version: 1, pins: parsed.pins, state: parsed.state };
+    const pins = parsed.pins.map((p) => ({ ...p, provider: p.provider ?? "claude" }));
+    return { version: 1, pins, state: parsed.state };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return { ...EMPTY };
     throw err;
