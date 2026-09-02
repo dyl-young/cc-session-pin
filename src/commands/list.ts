@@ -363,6 +363,7 @@ function refresh(
 }
 
 type ColumnWidths = {
+  src: number;
   project: number;
   name: number;
   modified: number;
@@ -383,13 +384,19 @@ function computeFooterHeight(rowCount: number): number {
   return Math.min(desired, cap);
 }
 
+const SRC_PROJECT_GAP = "  ";
 const PROJECT_NAME_GAP = "    ";
 const NAME_MODIFIED_GAP = "  ";
 
 function computeWidths(terminalWidth: number, rows: EnrichedPin[]): ColumnWidths {
   const usable = Math.max(60, terminalWidth - 6 - SELECT_INDICATOR_WIDTH);
   const prefix = 2;
-  const gapTotal = PROJECT_NAME_GAP.length + NAME_MODIFIED_GAP.length;
+  const gapTotal =
+    SRC_PROJECT_GAP.length + PROJECT_NAME_GAP.length + NAME_MODIFIED_GAP.length;
+  const src = rows.reduce(
+    (acc, r) => Math.max(acc, providerFor(r.pin.provider).label.length),
+    "SRC".length,
+  );
 
   const longestModified = rows.reduce((acc, r) => {
     const s = relativeTime(r.lastModified) + (r.missing ? " (stale)" : "");
@@ -403,8 +410,8 @@ function computeWidths(terminalWidth: number, rows: EnrichedPin[]): ColumnWidths
   );
   const project = Math.min(longestProject, 25);
 
-  const name = Math.max(10, usable - prefix - gapTotal - modified - project);
-  return { prefix, project, name, modified };
+  const name = Math.max(10, usable - prefix - gapTotal - modified - project - src);
+  return { prefix, src, project, name, modified };
 }
 
 function buildOptions(
@@ -424,6 +431,8 @@ function formatRow(row: EnrichedPin, marks: Map<string, Mark>, w: ColumnWidths):
   const prefix = markGlyph(row.pin.status, mark).padEnd(w.prefix);
   return (
     prefix +
+    cell(providerFor(row.pin.provider).label, w.src) +
+    SRC_PROJECT_GAP +
     cell(basename(row.pin.projectPath), w.project) +
     PROJECT_NAME_GAP +
     cell(row.pin.name, w.name) +
@@ -441,6 +450,8 @@ function header(w: ColumnWidths): string {
   return (
     " ".repeat(SELECT_INDICATOR_WIDTH) +
     " ".padEnd(w.prefix) +
+    cell("SRC", w.src) +
+    SRC_PROJECT_GAP +
     cell("PROJECT", w.project) +
     PROJECT_NAME_GAP +
     cell("NAME", w.name) +
@@ -526,6 +537,7 @@ async function persistChanges(store: PinStore, marks: Map<string, Mark>, namesEd
 
 function printPlain(rows: EnrichedPin[]): void {
   const cols = rows.map((r) => ({
+    src: providerFor(r.pin.provider).label,
     project: basename(r.pin.projectPath),
     name: r.pin.name,
     modified: relativeTime(r.lastModified),
@@ -534,6 +546,7 @@ function printPlain(rows: EnrichedPin[]): void {
     id: r.pin.sessionId,
   }));
   const widths = {
+    src: max(cols, "src"),
     project: max(cols, "project"),
     name: max(cols, "name"),
     modified: max(cols, "modified"),
@@ -543,6 +556,7 @@ function printPlain(rows: EnrichedPin[]): void {
   for (const c of cols) {
     console.log(
       [
+        c.src.padEnd(widths.src),
         c.project.padEnd(widths.project),
         c.name.padEnd(widths.name),
         c.modified.padEnd(widths.modified),
