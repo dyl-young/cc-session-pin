@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
+import { providerFor } from "../providers/index.js";
 import { resolveOrThrow } from "../resolve.js";
 import { loadStore, saveStore, type Pin, type PinStore } from "../store.js";
 
@@ -10,13 +11,12 @@ export async function resumeByToken(token: string): Promise<void> {
 }
 
 export async function resumePin(pin: Pin, store?: PinStore): Promise<void> {
+  const argv = providerFor(pin.provider).resumeArgv(pin.sessionId);
   await writeFollowCwd(pin.projectPath);
-  if (await handoffToWrapper(pin.sessionId)) {
-    return;
-  }
+  if (await handoffToWrapper(pin, argv)) return;
   await maybeShowShellHint(store);
   return new Promise((_, reject) => {
-    const child = spawn("claude", ["-r", pin.sessionId], {
+    const child = spawn(argv[0], argv.slice(1), {
       cwd: pin.projectPath,
       stdio: "inherit",
     });
@@ -35,11 +35,33 @@ async function writeFollowCwd(projectPath: string): Promise<void> {
   }
 }
 
-async function handoffToWrapper(sessionId: string): Promise<boolean> {
-  const file = process.env.CC_PIN_RESUME_FILE;
-  if (!file) return false;
+function shellQuote(arg: string): string {
+  return `'${arg.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Hand the resume off to the shell wrapper so the agent becomes a child of the
+ * user's shell rather than of this process.
+ *
+ * Wrappers from v0.3 and earlier only understood a bare session id and always
+ * ran `claude -r`, so they get the old payload for Claude pins and nothing at
+ * all for other providers (we spawn directly instead of mis-resuming).
+ */
+async function handoffToWrapper(pin: Pin, argv: string[]): Promise<boolean> {
+  const cmdFile = process.env.CC_PIN_RESUME_CMD_FILE;
+  if (cmdFile) {
+    try {
+      await writeFile(cmdFile, argv.map(shellQuote).join(" "), "utf8");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  const legacyFile = process.env.CC_PIN_RESUME_FILE;
+  if (!legacyFile || pin.provider !== "claude") return false;
   try {
-    await writeFile(file, sessionId, "utf8");
+    await writeFile(legacyFile, pin.sessionId, "utf8");
     return true;
   } catch {
     return false;
@@ -47,7 +69,13 @@ async function handoffToWrapper(sessionId: string): Promise<boolean> {
 }
 
 async function maybeShowShellHint(store?: PinStore): Promise<void> {
-  if (process.env.CC_PIN_CWD_FILE || process.env.CC_PIN_RESUME_FILE) return;
+  if (
+    process.env.CC_PIN_CWD_FILE ||
+    process.env.CC_PIN_RESUME_CMD_FILE ||
+    process.env.CC_PIN_RESUME_FILE
+  ) {
+    return;
+  }
   const s = store ?? (await loadStore());
   if (s.state?.shellHintShown) return;
   process.stderr.write(SHELL_HINT);

@@ -31,16 +31,16 @@ const POSIX = `__cc_pin_with_handoff() {
   local _cwd _resume
   _cwd="$(mktemp 2>/dev/null)" || return 1
   _resume="$(mktemp 2>/dev/null)" || { rm -f "$_cwd"; return 1; }
-  CC_PIN_CWD_FILE="$_cwd" CC_PIN_RESUME_FILE="$_resume" command "$_cmd" "$@"
+  CC_PIN_CWD_FILE="$_cwd" CC_PIN_RESUME_CMD_FILE="$_resume" command "$_cmd" "$@"
   local _rc=$?
   if [ -s "$_cwd" ]; then
     builtin cd "$(cat "$_cwd")" 2>/dev/null || true
   fi
   if [ -s "$_resume" ]; then
-    local _sid
-    _sid="$(cat "$_resume")"
+    local _cmdline
+    _cmdline="$(cat "$_resume")"
     rm -f "$_cwd" "$_resume"
-    command claude -r "$_sid"
+    eval "command $_cmdline"
     return $?
   fi
   rm -f "$_cwd" "$_resume"
@@ -63,15 +63,15 @@ const FISH = `function __cc_pin_with_handoff
         rm -f $_cwd
         return 1
     end
-    CC_PIN_CWD_FILE=$_cwd CC_PIN_RESUME_FILE=$_resume command $_cmd $argv
+    CC_PIN_CWD_FILE=$_cwd CC_PIN_RESUME_CMD_FILE=$_resume command $_cmd $argv
     set -l _rc $status
     if test -s $_cwd
         cd (cat $_cwd) 2>/dev/null
     end
     if test -s $_resume
-        set -l _sid (cat $_resume)
+        set -l _cmdline (cat $_resume)
         rm -f $_cwd $_resume
-        command claude -r $_sid
+        eval "command $_cmdline"
         return $status
     end
     rm -f $_cwd $_resume
