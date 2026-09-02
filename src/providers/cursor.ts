@@ -106,8 +106,10 @@ async function scanWorkspace(
       const chatDir = join(workspaceDir, chatId);
       const meta = await readMeta(chatDir);
       if (!meta) return undefined;
-      // Newer sidecars carry cwd, which is the only hash -> path mapping we get.
-      const projectPath = meta.cwd || fallbackProjectPath;
+      // When we found this chat by hashing a known path, that path wins: a moved
+      // workspace leaves a stale cwd behind in the sidecar. Blind scans have no
+      // path to pass, and fall back to whatever cwd was recorded.
+      const projectPath = fallbackProjectPath || meta.cwd;
       if (!projectPath) return undefined;
       return toEntry(chatId, chatDir, meta, projectPath);
     }),
