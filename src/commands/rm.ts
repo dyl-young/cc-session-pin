@@ -6,7 +6,7 @@ export async function rmCommand(token: string): Promise<void> {
   const store = await loadStore();
   const pin = resolveOrThrow(store.pins, token);
   if (pin.status === "unpinned") {
-    console.log(`"${pin.name}" is already unpinned. Use \`cc-pin purge\` to delete it.`);
+    console.log(`"${pin.name}" is already unpinned. Use \`pin purge\` to delete it.`);
     return;
   }
   pin.status = "unpinned";

@@ -59,7 +59,7 @@ export async function listCommand(opts: ListOptions): Promise<void> {
       ? `No pinned sessions match ${initialScope} "${initialFilter}".`
       : opts.all
         ? "No pins yet."
-        : "No pinned sessions. Run `cc-pin` in a project directory to add one.";
+        : "No pinned sessions. Run `pin` in a project directory to add one.";
     console.log(emptyMsg);
     return;
   }

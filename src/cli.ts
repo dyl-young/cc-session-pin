@@ -8,7 +8,7 @@ import { resumeByToken } from "./commands/resume.js";
 import { shellInitCommand } from "./commands/shell-init.js";
 import { runOrExit } from "./run.js";
 
-const cli = cac("cc-pin");
+const cli = cac("pin");
 
 const addAction = (
   sessionId: string | undefined,
