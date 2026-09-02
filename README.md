@@ -1,8 +1,8 @@
-# cc-session-pin
+# ai-session-pin
 
 Pin and resume Claude Code and Cursor agent sessions across project directories.
 
-Both tools scope their own resume picker to the current working directory: `claude -r` reads `~/.claude/projects`, and `agent --resume` reads the chats bucketed under your workspace path. `cc-session-pin` lets you mark sessions from either tool as "pinned" and browse / resume them from anywhere, with a small TUI and a sessionId-prefix resolver.
+Both tools scope their own resume picker to the current working directory: `claude -r` reads `~/.claude/projects`, and `agent --resume` reads the chats bucketed under your workspace path. `ai-session-pin` lets you mark sessions from either tool as "pinned" and browse / resume them from anywhere, with a small TUI and a sessionId-prefix resolver.
 
 ![alt text](image.png)
 
@@ -20,34 +20,32 @@ Both tools scope their own resume picker to the current working directory: `clau
 Requires [Bun](https://bun.sh) and [pnpm](https://pnpm.io). You also need whichever agents you want to pin on your PATH: `claude` for Claude Code, `agent` for Cursor. Neither is mandatory, and sessions for a missing tool are simply never listed.
 
 ```sh
-git clone https://github.com/dylanyoung-dev/cc-session-pin.git
-cd cc-session-pin
+git clone git@github.com:dyl-young/ai-session-pin.git
+cd ai-session-pin
 pnpm install
 pnpm link --global
 ```
 
-This installs six bins on your PATH:
+This installs three bins on your PATH:
 
-| Short form | Long form  | Action                          |
-| ---------- | ---------- | ------------------------------- |
-| `pin`      | `cc-pin`   | Pin / umbrella CLI              |
-| `pins`     | `cc-pins`  | Open the pinned-sessions TUI    |
-| `unpin`    | `cc-unpin` | Unpin by token or by cwd        |
-
-The `cc-` prefixed names are there for collision-free use if `pin` / `pins` / `unpin` clash with something else on your system.
+| Bin     | Action                       |
+| ------- | ---------------------------- |
+| `pin`   | Pin / umbrella CLI           |
+| `pins`  | Open the pinned-sessions TUI |
+| `unpin` | Unpin by token or by cwd     |
 
 ### Optional Shell integration (recommended)
 
-The shell wrapper makes `pins → Enter` (resume) drop your parent shell into the project directory, so any new pane / tab you open during the Claude session starts in the right place.
+The shell wrapper makes `pins → Enter` (resume) drop your parent shell into the project directory, so any new pane / tab you open during the session starts in the right place.
 
 Add **one** line to your shell config:
 
 ```sh
 # zsh / bash (in ~/.zshrc or ~/.bashrc)
-eval "$(cc-pin shell-init)"
+eval "$(pin shell-init)"
 
 # fish (in ~/.config/fish/config.fish)
-cc-pin shell-init fish | source
+pin shell-init fish | source
 ```
 
 Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries still work; the cd-on-resume just won't trigger.
@@ -67,9 +65,9 @@ Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries stil
 | `pins --all`                          | Include soft-deleted entries in the list                            |
 | `unpin`                               | Soft-delete the pin matching the current directory                  |
 | `unpin <token>`                       | Soft-delete a pin by id (full or prefix) or name substring          |
-| `cc-pin resume <token>`               | Resume a pinned session directly (no TUI)                           |
-| `cc-pin purge`                        | Permanently drop all soft-deleted entries                           |
-| `cc-pin shell-init [zsh\|bash\|fish]` | Print the shell wrapper (see [Shell integration](#shell-integration-recommended)) |
+| `pin resume <token>`                  | Resume a pinned session directly (no TUI)                           |
+| `pin purge`                           | Permanently drop all soft-deleted entries                           |
+| `pin shell-init [zsh\|bash\|fish]`    | Print the shell wrapper (see [Shell integration](#shell-integration-recommended)) |
 
 `<token>` matches a pin by **session id** (full or any unique prefix) or by **name substring** — whichever uniquely identifies one pin.
 
@@ -84,14 +82,29 @@ Then reload (`source ~/.zshrc` or open a new tab). Without it, the binaries stil
 
 The repo ships two Claude Code skills under `skills/`:
 
-- `pin` — pins the current session (`cc-pin add ${CLAUDE_SESSION_ID}`)
-- `unpin` — unpins the current session (`cc-pin rm ${CLAUDE_SESSION_ID}`)
+- `pin` — pins the current session (`pin add ${CLAUDE_SESSION_ID}`)
+- `unpin` — unpins the current session (`pin rm ${CLAUDE_SESSION_ID}`)
 
 To use them, point your Claude Code skills directory at this repo's `skills/` folder.
 
 ## Storage
 
-State lives at `~/.claude/pinned-sessions/pins.json`. It's a small, human-readable JSON file, safe to delete to start fresh. Entries written before multi-provider support gain their `provider` and `nameSource` fields the next time the file is saved.
+State lives at `~/.ai-session-pin/pins.json`. It's a small, human-readable JSON file, safe to delete to start fresh.
+
+Two migrations happen on their own. Pins from before the rename get copied out of `~/.claude/pinned-sessions/pins.json` the first time you run any command, and the old file is left behind untouched so you can delete it once you're happy. Entries written before multi-provider support gain their `provider` and `nameSource` fields the next time the file is saved.
+
+## Moving a project
+
+Both agents key their history on the project's absolute path: Claude Code under an encoded copy of it, Cursor under an md5 of it. Move a project and both stores are orphaned while every pin points at a path that no longer exists.
+
+`scripts/move-project.ts` repoints all of it. It runs as a dry run unless you pass `--apply`:
+
+```sh
+bun scripts/move-project.ts /old/path /new/path
+bun scripts/move-project.ts /old/path /new/path --apply
+```
+
+It rewrites matching `projectPath` entries in `pins.json`, moves the Claude session directory, moves the Cursor chats directory, and rewrites the `cwd` recorded in each Cursor sidecar. It won't move the project itself; do that with `mv`, from outside the directory so nothing holds it open.
 
 ## Development
 
