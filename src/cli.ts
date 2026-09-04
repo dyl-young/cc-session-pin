@@ -8,19 +8,23 @@ import { resumeByToken } from "./commands/resume.js";
 import { shellInitCommand } from "./commands/shell-init.js";
 import { runOrExit } from "./run.js";
 
-const cli = cac("cc-pin");
+const cli = cac("pin");
 
-const addAction = (sessionId: string | undefined, opts: { name?: string }) =>
-  addCommand({ sessionToken: sessionId, name: opts.name });
+const addAction = (
+  sessionId: string | undefined,
+  opts: { name?: string; syncName?: boolean },
+) => addCommand({ sessionToken: sessionId, name: opts.name, syncName: opts.syncName });
 
 cli
   .command("[sessionId]", "Pin a session (defaults to latest in cwd)")
-  .option("-n, --name <name>", "Display name for the pin (overrides aiTitle)")
+  .option("-n, --name <name>", "Display name for the pin (sticks until --sync-name)")
+  .option("--sync-name", "Drop a custom name and follow the agent's title again")
   .action(addAction);
 
 cli
   .command("add [sessionId]", "Pin a session explicitly")
-  .option("-n, --name <name>", "Display name (overrides aiTitle)")
+  .option("-n, --name <name>", "Display name (sticks until --sync-name)")
+  .option("--sync-name", "Drop a custom name and follow the agent's title again")
   .action(addAction);
 
 cli

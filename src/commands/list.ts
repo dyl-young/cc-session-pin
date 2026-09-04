@@ -11,7 +11,7 @@ import {
   type SelectOption,
 } from "@opentui/core";
 import { loadStore, saveStore, type Pin, type PinStore } from "../store.js";
-import { readSessionsForProject } from "../sessions.js";
+import { providerFor } from "../providers/index.js";
 import { resumePin } from "./resume.js";
 
 export type FilterScope = "project" | "name";
@@ -36,6 +36,7 @@ type Mark = "unpin" | "repin";
 
 type EnrichedPin = {
   pin: Pin;
+  nameRefreshed: boolean;
   lastModified?: string;
   gitBranch?: string;
   missing: boolean;
@@ -58,32 +59,43 @@ export async function listCommand(opts: ListOptions): Promise<void> {
       ? `No pinned sessions match ${initialScope} "${initialFilter}".`
       : opts.all
         ? "No pins yet."
-        : "No pinned sessions. Run `cc-pin` in a project directory to add one.";
+        : "No pinned sessions. Run `pin` in a project directory to add one.";
     console.log(emptyMsg);
     return;
   }
 
   const rows = await Promise.all(visiblePins.map(enrich));
+  const nameRefreshed = rows.some((r) => r.nameRefreshed);
   rows.sort((a, b) => (b.lastModified || "").localeCompare(a.lastModified || ""));
 
   if (opts.plain) {
+    if (nameRefreshed) await saveStore(store);
     printPlain(rows);
     return;
   }
 
   const outcome = await runTui(rows, initialFilter, initialScope);
-  await persistChanges(store, outcome.marks, outcome.namesEdited);
+  await persistChanges(store, outcome.marks, outcome.namesEdited || nameRefreshed);
   if (outcome.action === "resume") {
     await resumePin(outcome.pin, store);
   }
 }
 
 async function enrich(pin: Pin): Promise<EnrichedPin> {
-  const live = (await readSessionsForProject(pin.projectPath)).find(
+  const provider = providerFor(pin.provider);
+  const live = (await provider.sessionsForProject(pin.projectPath)).find(
     (e) => e.sessionId === pin.sessionId,
   );
+  // Track the agent's own title unless the user has overridden it here, so a
+  // /rename inside Claude or Cursor shows up on the next listing.
+  let nameRefreshed = false;
+  if (pin.nameSource !== "user" && live?.summary && live.summary !== pin.name) {
+    pin.name = live.summary;
+    nameRefreshed = true;
+  }
   return {
     pin,
+    nameRefreshed,
     lastModified: live?.modified ?? pin.lastModified,
     gitBranch: live?.gitBranch || pin.gitBranch,
     missing: !live,
@@ -251,6 +263,7 @@ async function runTui(
           const trimmed = renameText.trim();
           if (renamingPin && trimmed && renamingPin.name !== trimmed) {
             renamingPin.name = trimmed;
+            renamingPin.nameSource = "user";
             namesEdited = true;
           }
           mode = "normal";
@@ -362,6 +375,7 @@ function refresh(
 }
 
 type ColumnWidths = {
+  src: number;
   project: number;
   name: number;
   modified: number;
@@ -382,13 +396,19 @@ function computeFooterHeight(rowCount: number): number {
   return Math.min(desired, cap);
 }
 
+const SRC_PROJECT_GAP = "  ";
 const PROJECT_NAME_GAP = "    ";
 const NAME_MODIFIED_GAP = "  ";
 
 function computeWidths(terminalWidth: number, rows: EnrichedPin[]): ColumnWidths {
   const usable = Math.max(60, terminalWidth - 6 - SELECT_INDICATOR_WIDTH);
   const prefix = 2;
-  const gapTotal = PROJECT_NAME_GAP.length + NAME_MODIFIED_GAP.length;
+  const gapTotal =
+    SRC_PROJECT_GAP.length + PROJECT_NAME_GAP.length + NAME_MODIFIED_GAP.length;
+  const src = rows.reduce(
+    (acc, r) => Math.max(acc, providerFor(r.pin.provider).label.length),
+    "SRC".length,
+  );
 
   const longestModified = rows.reduce((acc, r) => {
     const s = relativeTime(r.lastModified) + (r.missing ? " (stale)" : "");
@@ -402,8 +422,8 @@ function computeWidths(terminalWidth: number, rows: EnrichedPin[]): ColumnWidths
   );
   const project = Math.min(longestProject, 25);
 
-  const name = Math.max(10, usable - prefix - gapTotal - modified - project);
-  return { prefix, project, name, modified };
+  const name = Math.max(10, usable - prefix - gapTotal - modified - project - src);
+  return { prefix, src, project, name, modified };
 }
 
 function buildOptions(
@@ -423,6 +443,8 @@ function formatRow(row: EnrichedPin, marks: Map<string, Mark>, w: ColumnWidths):
   const prefix = markGlyph(row.pin.status, mark).padEnd(w.prefix);
   return (
     prefix +
+    cell(providerFor(row.pin.provider).label, w.src) +
+    SRC_PROJECT_GAP +
     cell(basename(row.pin.projectPath), w.project) +
     PROJECT_NAME_GAP +
     cell(row.pin.name, w.name) +
@@ -440,6 +462,8 @@ function header(w: ColumnWidths): string {
   return (
     " ".repeat(SELECT_INDICATOR_WIDTH) +
     " ".padEnd(w.prefix) +
+    cell("SRC", w.src) +
+    SRC_PROJECT_GAP +
     cell("PROJECT", w.project) +
     PROJECT_NAME_GAP +
     cell("NAME", w.name) +
@@ -525,6 +549,7 @@ async function persistChanges(store: PinStore, marks: Map<string, Mark>, namesEd
 
 function printPlain(rows: EnrichedPin[]): void {
   const cols = rows.map((r) => ({
+    src: providerFor(r.pin.provider).label,
     project: basename(r.pin.projectPath),
     name: r.pin.name,
     modified: relativeTime(r.lastModified),
@@ -533,6 +558,7 @@ function printPlain(rows: EnrichedPin[]): void {
     id: r.pin.sessionId,
   }));
   const widths = {
+    src: max(cols, "src"),
     project: max(cols, "project"),
     name: max(cols, "name"),
     modified: max(cols, "modified"),
@@ -542,6 +568,7 @@ function printPlain(rows: EnrichedPin[]): void {
   for (const c of cols) {
     console.log(
       [
+        c.src.padEnd(widths.src),
         c.project.padEnd(widths.project),
         c.name.padEnd(widths.name),
         c.modified.padEnd(widths.modified),

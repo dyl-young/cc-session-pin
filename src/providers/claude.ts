@@ -1,18 +1,8 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { PROJECTS_DIR, encodeProjectPath } from "./paths.js";
+import { PROJECTS_DIR, encodeProjectPath } from "../paths.js";
+import type { Provider, SessionEntry } from "./types.js";
 
-export type SessionEntry = {
-  sessionId: string;
-  fullPath: string;
-  fileMtime: number;
-  firstPrompt: string;
-  summary: string;
-  modified: string;
-  gitBranch?: string;
-  projectPath: string;
-  isSidechain?: boolean;
-};
 
 type SessionsIndex = {
   version: number;
@@ -23,7 +13,8 @@ async function readIndex(indexPath: string): Promise<SessionEntry[]> {
   try {
     const raw = await readFile(indexPath, "utf8");
     const parsed = JSON.parse(raw) as SessionsIndex;
-    return Array.isArray(parsed.entries) ? parsed.entries : [];
+    if (!Array.isArray(parsed.entries)) return [];
+    return parsed.entries.map((e) => ({ ...e, provider: "claude" as const }));
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === "ENOENT" || code === "ENOTDIR") return [];
@@ -82,6 +73,7 @@ async function scanDir(dir: string, fallbackProjectPath: string | null): Promise
       if (!projectPath) continue; // can't pin without a real path
       out.push({
         sessionId,
+        provider: "claude",
         fullPath: full,
         fileMtime: stats.mtimeMs,
         firstPrompt: meta.firstPrompt,
@@ -211,3 +203,13 @@ async function listProjectDirs(): Promise<string[]> {
     throw err;
   }
 }
+
+export const claudeProvider: Provider = {
+  id: "claude",
+  label: "cc",
+  binary: "claude",
+  sessionsForProject: readSessionsForProject,
+  findByPrefix: findSessionByPrefix,
+  latestForCwd: latestSessionForCwd,
+  resumeArgv: (sessionId) => ["claude", "-r", sessionId],
+};

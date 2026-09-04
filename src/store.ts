@@ -1,12 +1,18 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { PINS_DIR, PINS_FILE } from "./paths.js";
+import { LEGACY_PINS_FILE, PINS_DIR, PINS_FILE } from "./paths.js";
+import type { ProviderId } from "./providers/types.js";
 
 export type PinStatus = "pinned" | "unpinned";
 
+/** Where `name` came from: the agent's own title, or the user overriding it. */
+export type NameSource = "provider" | "user";
+
 export type Pin = {
   sessionId: string;
+  provider: ProviderId;
   projectPath: string;
   name: string;
+  nameSource: NameSource;
   pinnedAt: string;
   status: PinStatus;
   summary?: string;
@@ -28,16 +34,49 @@ export type PinStore = {
 const EMPTY: PinStore = { version: 1, pins: [] };
 
 export async function loadStore(): Promise<PinStore> {
+  const migrated = await migrateLegacyStore();
   try {
-    const raw = await readFile(PINS_FILE, "utf8");
+    const raw = await readFile(migrated ?? PINS_FILE, "utf8");
     const parsed = JSON.parse(raw) as PinStore;
     if (parsed.version !== 1 || !Array.isArray(parsed.pins)) {
       throw new Error(`Unexpected pins.json shape at ${PINS_FILE}`);
     }
-    return { version: 1, pins: parsed.pins, state: parsed.state };
+    const pins = parsed.pins.map((p) => ({
+      ...p,
+      provider: p.provider ?? "claude",
+      nameSource: p.nameSource ?? (p.summary && p.name !== p.summary ? "user" : "provider"),
+    }));
+    return { version: 1, pins, state: parsed.state };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return { ...EMPTY };
     throw err;
+  }
+}
+
+/**
+ * Copies pins.json out of ~/.claude into the tool's own directory the first
+ * time it runs after the rename. Returns the path to read from.
+ */
+async function migrateLegacyStore(): Promise<string | undefined> {
+  try {
+    await readFile(PINS_FILE, "utf8");
+    return undefined; // already migrated
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") return undefined;
+  }
+  let legacy: string;
+  try {
+    legacy = await readFile(LEGACY_PINS_FILE, "utf8");
+  } catch {
+    return undefined; // nothing to migrate; fresh install
+  }
+  try {
+    await mkdir(PINS_DIR, { recursive: true });
+    await writeFile(PINS_FILE, legacy, "utf8");
+    process.stderr.write(`Moved pins to ${PINS_FILE} (was ${LEGACY_PINS_FILE}).\n`);
+    return undefined;
+  } catch {
+    return LEGACY_PINS_FILE; // read-only fallback so the CLI still works
   }
 }
 
