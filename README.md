@@ -106,6 +106,18 @@ bun scripts/move-project.ts /old/path /new/path --apply
 
 It rewrites matching `projectPath` entries in `pins.json`, moves the Claude session directory, moves the Cursor chats directory, and rewrites the `cwd` recorded in each Cursor sidecar. It won't move the project itself; do that with `mv`, from outside the directory so nothing holds it open.
 
+### If a session was running during the move
+
+An agent recomputes its history directory from the working directory it captured at startup, so a session that is still running recreates the old directory and keeps writing there. Its history ends up split across both paths. The move warns when it sees a session file touched in the last two minutes.
+
+Once that session exits, fold the leftovers in:
+
+```sh
+bun scripts/move-project.ts /old/path /new/path --reconcile --apply
+```
+
+Reconcile appends each stray Claude session file onto its moved counterpart, checking timestamp order first, and removes the old directory once it's empty. It skips any file written in the last minute, so it won't touch a session that is still live. Cursor chats can't be merged this way, since their history lives in SQLite rather than an append-only log; reconcile reports them instead and leaves them for you to move.
+
 ## Development
 
 ```sh
