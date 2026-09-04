@@ -6,7 +6,6 @@
     "lib": ["ES2022"],
     "types": ["node"],
     "noEmit": true,
-    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -15,6 +14,6 @@
     "declaration": false,
     "sourceMap": false
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"]
 }
